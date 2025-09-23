@@ -12,12 +12,7 @@
 <body>
   <div class="wrap">
     <div class="phone" role="region" aria-label="Ecran check-in – cod de 4 cifre">
-      <div class="notch" aria-hidden="true"></div>
-      <div class="statusbar" aria-hidden="true">
-        <div class="left"><span class="signal"><i></i><i></i><i></i><i></i></span></div>
-        <div class="sb-time">--:--</div>
-        <div class="right"><span class="battery"><b></b><em></em></span></div>
-      </div>
+
       <header>
         <div class="brand">Sala <b>Alternativă</b></div>
         <div class="time">&nbsp;</div>
@@ -35,6 +30,7 @@
             <input name="d2" type="text" inputmode="numeric" maxlength="1" aria-label="Cifra 2" />
             <input name="d3" type="text" inputmode="numeric" maxlength="1" aria-label="Cifra 3" />
             <input name="d4" type="text" inputmode="numeric" maxlength="1" aria-label="Cifra 4" />
+            <input type="hidden" name="device_id" id="device_id" />
           </div>
           <div class="hint">Identificator: 4 cifre (definit de școală). Nu salvăm nume.</div>
           <div class="actions">
@@ -45,5 +41,24 @@
       </div>
     </div>
   </div>
+
+<script>
+(function(){
+  try{
+    var key = 'sa_did';
+    var did = localStorage.getItem(key);
+    if(!did){
+      // generați un UUID simplu
+      did = 'did-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem(key, did);
+      document.cookie = key + '=' + did + '; path=/; max-age=' + (60*60*24*365*2);
+    }
+    document.getElementById('device_id').value = did;
+  }catch(e){
+    // fallback simplu
+    document.getElementById('device_id').value = 'did-fallback-' + Date.now();
+  }
+})();
+</script>
 </body>
 </html>

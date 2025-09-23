@@ -2,6 +2,7 @@ from __future__ import annotations
 from flask import Blueprint, render_template, request, redirect, url_for
 from datetime import datetime, timezone, timedelta
 from .db import get_connection, _hash_code
+from flask import current_app
 
 bp = Blueprint("main", __name__)
 
@@ -46,7 +47,7 @@ def monitor():
 
     class_id = sess["class_id"]
     starts_at = _parse_iso(sess["starts_at"])  # aware
-    now = datetime.now(tz=starts_at.tzinfo)
+    now = datetime.now(tz=current_app.config["TZ"])
     delta = int((now - starts_at).total_seconds())
 
     # coduri autorizate pentru clasă
@@ -125,7 +126,7 @@ def elev():
 
             class_id = sess["class_id"]
             starts_at = _parse_iso(sess["starts_at"])  # aware
-            now = datetime.now(tz=starts_at.tzinfo)
+            now = datetime.now(tz=current_app.config["TZ"])
             delta = int((now - starts_at).total_seconds())
 
             st = _status_for(delta)
@@ -141,6 +142,65 @@ def elev():
                 if not cur.fetchone():
                     message = "Cod neautorizat pentru această clasă"
                 else:
+                    # --- Anti‑fraud rules ---
+                    device_id = (request.form.get("device_id") or "").strip()
+                    if not device_id:
+                        message = "Lipsește identificatorul dispozitivului"
+                    else:
+                        # 1) Rate limit: max 3 încercări în 60s per device per sesiune
+                        cur.execute(
+                            "SELECT COUNT(*) FROM attempt_log WHERE session_id=? AND device_id=? AND ts >= ?",
+                            (session_id, device_id, (now - timedelta(seconds=60)).strftime("%Y-%m-%dT%H:%M:%S%z")),
+                        )
+                        attempts_last_min = cur.fetchone()[0]
+                        if attempts_last_min >= 3:
+                            # log și refuz
+                            cur.execute(
+                                "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts) VALUES (?,?,?,?,?,?,?,?,?)",
+                                (session_id, class_id, device_id, None, 0, "rate-limit", request.remote_addr,
+                                 request.headers.get("User-Agent", ""), now.strftime("%Y-%m-%dT%H:%M:%S%z")),
+                            )
+                            conn.commit()
+                            message = "Prea multe încercări. Încearcă din nou peste un minut."
+                            conn.close()
+                            return render_template("elev.html", session_id=session_id, message=message,
+                                                   status_final=None)
+
+                        # 2) Același device a înregistrat deja ALT cod la această sesiune?
+                        cur.execute(
+                            "SELECT DISTINCT code4_hash FROM attendance WHERE session_id=? AND class_id=? AND code4_hash IS NOT NULL",
+                            (session_id, class_id),
+                        )
+                        used_hashes = {row[0] for row in cur.fetchall()}
+                        if used_hashes and (code_hash not in used_hashes):
+                            cur.execute(
+                                "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts) VALUES (?,?,?,?,?,?,?,?,?)",
+                                (session_id, class_id, device_id, code_hash, 0, "device-used-for-other-code",
+                                 request.remote_addr, request.headers.get("User-Agent", ""),
+                                 now.strftime("%Y-%m-%dT%H:%M:%S%z")),
+                            )
+                            conn.commit()
+                            message = "Acest dispozitiv a fost folosit deja pentru alt cod la această oră."
+                            conn.close()
+                            return render_template("elev.html", session_id=session_id, message=message,
+                                                   status_final=None)
+
+                        # 3) Cod deja folosit (un check‑in per elev per sesiune)
+                        cur.execute(
+                            "SELECT 1 FROM attendance WHERE session_id=? AND code4_hash=?",
+                            (session_id, code_hash),
+                        )
+                        if cur.fetchone():
+                            cur.execute(
+                                "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts) VALUES (?,?,?,?,?,?,?,?,?)",
+                                (session_id, class_id, device_id, code_hash, 0, "duplicate-code", request.remote_addr,
+                                 request.headers.get("User-Agent", ""), now.strftime("%Y-%m-%dT%H:%M:%S%z")),
+                            )
+                            conn.commit()
+                            message = "Acest cod a fost deja folosit pentru această oră."
+                            conn.close()
+                            return render_template("elev.html", session_id=session_id, message=message,
+                                                   status_final=None)
                     # încercăm să insertăm attendance (unică per (session_id, code4_hash))
                     try:
                         cur.execute(
@@ -151,6 +211,11 @@ def elev():
                         conn.commit()
                         status_final = st
                         message = "Te-ai înregistrat cu succes"
+                        cur.execute(
+                            "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts) VALUES (?,?,?,?,?,?,?,?,?)",
+                            (session_id, class_id, device_id, code_hash, 1, "ok", request.remote_addr,
+                             request.headers.get("User-Agent", ""), now.strftime("%Y-%m-%dT%H:%M:%S%z")),
+                        )
                     except Exception:
                         # există deja o înregistrare
                         message = "Ai fost deja înregistrat pentru această oră"

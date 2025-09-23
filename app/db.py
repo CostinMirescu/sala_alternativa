@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from flask import current_app
+from zoneinfo import ZoneInfo
+
 
 ISO_FMT = "%Y-%m-%dT%H:%M:%S%z"  # ex: 2025-09-23T10:00:00+0200
 
@@ -75,6 +77,23 @@ def init_db() -> None:
             status TEXT NOT NULL CHECK (status IN ('neconfirmat','prezent','întârziat')),
             check_in_at TEXT,
             UNIQUE(session_id, code4_hash)
+        );
+        """
+    )
+
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS attempt_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            class_id TEXT NOT NULL,
+            device_id TEXT NOT NULL,
+            code4_hash TEXT,
+            success INTEGER NOT NULL,
+            reason TEXT,
+            ip TEXT,
+            user_agent TEXT,
+            ts TEXT NOT NULL
         );
         """
     )

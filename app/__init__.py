@@ -1,7 +1,8 @@
 from flask import Flask
 from dotenv import load_dotenv
 import os
-
+from zoneinfo import ZoneInfo
+from flask.cli import with_appcontext
 
 def create_app():
     load_dotenv()
@@ -16,6 +17,8 @@ def create_app():
     app.config["TIMEZONE"] = os.getenv("TIMEZONE", "Europe/Bucharest")
     app.config["DATABASE_URL"] = os.getenv("DATABASE_URL", "sqlite:///instance/sala.db")
 
+    app.config["TZ"] = ZoneInfo(app.config["TIMEZONE"])
+
     from .routes import bp as main_bp
     app.register_blueprint(main_bp)
 
@@ -28,12 +31,14 @@ def create_app():
     from . import db as dbmod
 
     @app.cli.command("init-db")
+    @with_appcontext
     def init_db_cmd():
         """Create tables in SQLite (idempotent)."""
         dbmod.init_db()
         click.echo("DB initialized ✅")
 
     @app.cli.command("import-codes")
+    @with_appcontext
     @click.argument("csv_path")
     def import_codes_cmd(csv_path: str):
         """Import authorized codes from CSV (class_id,code4)."""
@@ -41,6 +46,7 @@ def create_app():
         click.echo(f"Imported: {res.inserted}, skipped duplicates: {res.skipped_duplicates}")
 
     @app.cli.command("seed-session")
+    @with_appcontext
     @click.option("--class", "class_id", required=True, help="Class id, e.g. 11C")
     @click.option("--start", "starts_at", required=True, help="Start ISO, e.g. 2025-09-23T10:00:00+02:00")
     @click.option("--end", "ends_at", required=True, help="End ISO, e.g. 2025-09-23T10:50:00+02:00")
@@ -48,6 +54,23 @@ def create_app():
         from .db import seed_session as _seed
         s = _seed(class_id, starts_at, ends_at)
         click.echo(f"Session created id={s.id} for class {s.class_id} ({s.starts_at} → {s.ends_at})")
+
+    @app.cli.command("seed-now")
+    @with_appcontext
+    @click.option("--class", "class_id", required=True)
+    @click.option("--minutes-ago", "minutes_ago", default=2, type=int,
+                  help="Câte minute în urmă să fie startul (default 2)")
+    @click.option("--duration", "duration_min", default=50, type=int,
+                  help="Durata în minute (default 50)")
+    def seed_now_cmd(class_id: str, minutes_ago: int, duration_min: int):
+        from datetime import datetime, timedelta
+        from .db import seed_session as _seed
+        tz = app.config["TZ"]
+        start = datetime.now(tz) - timedelta(minutes=minutes_ago)
+        end = start + timedelta(minutes=duration_min)
+        iso = "%Y-%m-%dT%H:%M:%S%z"
+        s = _seed(class_id, start.strftime(iso), end.strftime(iso))
+        click.echo(f"Session created id={s.id} for class {class_id} ({s.starts_at} → {s.ends_at})")
 
     return app
 
