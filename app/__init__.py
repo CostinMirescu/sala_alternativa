@@ -73,6 +73,18 @@ def create_app():
         s = _seed(class_id, start.strftime(iso), end.strftime(iso))
         click.echo(f"Session created id={s.id} for class {class_id} ({s.starts_at} → {s.ends_at})")
 
+    @app.cli.command("backfill-codes")
+    @with_appcontext
+    @click.argument("csv_path")
+    def backfill_codes_cmd(csv_path: str):
+        """
+        Completează/inserează codurile din CSV (class_id,code4),
+        populând și coloana code4_plain unde lipsește.
+        """
+        from .db import import_codes
+        res = import_codes(Path(csv_path))
+        click.echo(f"Backfill done. inserted={res.inserted}, updated_or_skipped={res.skipped_duplicates}")
+
     return app
 
 

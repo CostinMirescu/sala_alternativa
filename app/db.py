@@ -102,6 +102,13 @@ def init_db() -> None:
         """
     )
 
+    # --- migration: add code4_plain for display ---
+    try:
+        cur.execute("ALTER TABLE authorized_code ADD COLUMN code4_plain TEXT")
+    except sqlite3.OperationalError:
+        # coloana există deja
+        pass
+
     conn.commit()
     conn.close()
 
@@ -136,6 +143,22 @@ def import_codes(csv_path: Path) -> ImportResult:
                 raise ValueError("class_id cannot be empty")
             if not (code4.isdigit() and len(code4) == 4):
                 raise ValueError(f"Invalid code4 '{code4}' (must be exactly 4 digits)")
+
+            tail = code4[-4:]  # păstrăm exact 4 caractere, inclusiv 0 la început
+            code_hash = _hash_code(class_id, code4)
+            try:
+                cur.execute(
+                    "INSERT INTO authorized_code(class_id, code4_hash, code4_plain) VALUES (?,?,?)",
+                    (class_id, code_hash, tail),
+                )
+                inserted += 1
+            except sqlite3.IntegrityError:
+                # dacă înregistrarea există, încercăm să completăm code4_plain dacă e NULL
+                cur.execute(
+                    "UPDATE authorized_code SET code4_plain=? WHERE class_id=? AND code4_hash=? AND (code4_plain IS NULL OR code4_plain='')",
+                    (tail, class_id, code_hash),
+                )
+                skipped += 1
 
             # ensure class exists
             cur.execute("INSERT OR IGNORE INTO class(id) VALUES (?)", (class_id,))

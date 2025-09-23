@@ -24,7 +24,7 @@
         <div class="codes" role="list">
           {% for c in codes %}
           <div class="code" role="listitem">
-            <b>••{{ loop.index0 ~ loop.index0 }}</b> <!-- mascăm; poți înlocui cu altă logică -->
+            <b>{{ c.code4 }}</b> <!-- mascăm; poți înlocui cu altă logică -->
             {% if c.status == 'prezent' %}
               <span class="badge present" title="prezent"><span class="dot"></span> prezent</span>
             {% elif c.status == 'întârziat' %}

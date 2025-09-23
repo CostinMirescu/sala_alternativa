@@ -63,20 +63,21 @@ def monitor():
     code_hashes = [r[0] for r in cur.fetchall()]
 
     # attendance curent pentru sesiune
-    cur.execute(
-        "SELECT code4_hash, status FROM attendance WHERE session_id=?",
-        (session_id,),
-    )
+    cur.execute("SELECT code4_hash, code4_plain FROM authorized_code WHERE class_id=? ORDER BY id", (class_id,))
+    rows = cur.fetchall()
+
+    cur.execute("SELECT code4_hash, status FROM attendance WHERE session_id=?", (session_id,))
     status_map = {row[0]: row[1] for row in cur.fetchall()}
     conn.close()
 
-    # proiectăm pentru UI (fără a expune codul real): afișăm mascat ultimele 2 cifre
     codes_ui = []
-    for h in code_hashes:
+    for r in rows:
+        h = r[0]
+        code4 = r[1] or "????"  # fallback
         st = status_map.get(h, "neconfirmat")
-        codes_ui.append({"hash": h, "masked": "••**", "status": st})
+        codes_ui.append({"code4": code4, "status": st})
 
-    present_count = sum(1 for c in codes_ui if c["status"] in ("prezent","întârziat"))
+    present_count = sum(1 for c in codes_ui if c["status"] in ("prezent", "întârziat"))
 
     # etichetă fereastră
     if delta < 0:
