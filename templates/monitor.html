@@ -2,80 +2,132 @@
 <!DOCTYPE html>
 <html lang="ro">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{{ title }}</title>
-  <meta http-equiv="refresh" content="10"> <!-- auto-refresh simplu -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ config['ASSET_VER'] }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/monitor.css') }}?v={{ config['ASSET_VER'] }}">
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>{{ title }}</title>
+    <meta http-equiv="refresh" content="10"> <!-- auto-refresh simplu -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ config['ASSET_VER'] }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/monitor.css') }}?v={{ config['ASSET_VER'] }}">
 
 </head>
 <body>
-  <div class="wrap">
+<div class="wrap">
     <header>
-      <div class="clock" aria-live="polite">{{ ora_curenta }}</div>
-      <div class="class-pill">Acum la religie: <strong>Clasa {{ class_id }}</strong></div>
+        <div class="clock" aria-live="polite">{{ ora_curenta }}</div>
+        <div class="class-pill">Acum la religie: <strong>Clasa {{ class_id }}</strong></div>
     </header>
 
     <main class="main">
-      <section class="card" aria-labelledby="list-coduri">
-        <h2 id="list-coduri">Elevi care nu participă la ora de religie</h2>
-        <p class="sub">Fereastră check‑in: {{ window_label }}. Bife verzi = prezenți.</p>
-        <div class="codes" role="list">
-          {% for c in codes %}
-          <div class="code" role="listitem">
-            <b>••{{ loop.index0 ~ loop.index0 }}</b> <!-- mascăm; poți înlocui cu altă logică -->
-            {% if c.status == 'prezent' %}
-              <span class="badge present" title="prezent"><span class="dot"></span> prezent</span>
-            {% elif c.status == 'întârziat' %}
-              <span class="badge late" title="întârziat"><span class="dot"></span> întârziat</span>
-            {% else %}
-              <span class="badge missing" title="neconfirmat">neconfirmat</span>
-            {% endif %}
-          </div>
-          {% endfor %}
-        </div>
-        <div class="counter" aria-live="polite">
-          Prezenți: <span class="pill">{{ present_count }} / {{ total }}</span>
-        </div>
-      </section>
+        <section class="card" aria-labelledby="list-coduri">
+            <h2 id="list-coduri">Elevi care nu participă la ora de religie</h2>
+            <p class="sub">Fereastră check‑in: {{ window_label }}. Bife verzi = prezenți.</p>
+            <div class="codes" role="list">
+                {% for c in codes %}
+                <div class="code" role="listitem">
+                    <b>{{ c.code4 }}</b> <!-- mascăm; poți înlocui cu altă logică -->
+                    {% if c.status == 'prezent' %}
+                    <span class="badge present" title="prezent"><span class="dot"></span> prezent</span>
+                    {% elif c.status == 'întârziat' %}
+                    <span class="badge late" title="întârziat"><span class="dot"></span> întârziat</span>
+                    {% elif c.status == 'plecat' %}
+                    <span class="badge gone" title="plecat"><span class="dot"></span> plecat</span>
+                    {% else %}
+                    <span class="badge missing" title="neconfirmat">neconfirmat</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="counter" aria-live="polite">
+                Prezenți: <span class="pill">{{ present_count }} / {{ total }}</span>
+            </div>
+            <div class="counter" aria-live="polite">
+                Plecați: <span class="pill">{{ left_count }} / {{ total }}</span>
+            </div>
 
-      <aside class="card qr-panel" aria-labelledby="qr-title">
-        <h2 id="qr-title">Cod de început de oră</h2>
-        <div class="qr-box" aria-label="cod QR — scanează pentru a confirma prezența">
-          <img src="{{ url_for('main.qr_png') }}?token={{ qr_token }}&v={{ ora_curenta }}" alt="QR check-in">
+        </section>
 
-        </div>
-        <div class="qr-caption">Scanează pentru a-ți confirma prezența</div>
-      </aside>
+        <aside class="card qr-panel" aria-labelledby="qr-title">
+            <h2 id="qr-title">Cod de început de oră</h2>
+            <div class="qr-box" aria-label="cod QR — scanează pentru a confirma prezența">
+                <img src="" alt="QR">
+            </div>
+            <div class="qr-caption">Scanează pentru a-ți confirma prezența</div>
+            <div id="qr-debug" class="qr-caption" style="user-select:all; max-width:500px"></div>
+        </aside>
+
     </main>
 
     <footer>
-      <span>Template demo (static). În implementare, valorile vin din DB.</span>
-      <span class="fs-hint">Sfat: apasă <kbd>F11</kbd> pentru full-screen.</span>
+        <span>Template demo (static). În implementare, valorile vin din DB.</span>
+        <span class="fs-hint">Sfat: apasă <kbd>F11</kbd> pentru full-screen.</span>
     </footer>
-  </div>
+</div>
 
 <script>
-(function(){
-  const sessionId = {{ session_id|int }};
-  const clockEl = document.querySelector('.clock');
-  const subEl = document.querySelector('.sub');
-  const counterEl = document.querySelector('.counter .pill');
+    (function(){
+      const sessionId = {{ session_id|int }};
+      const clockEl = document.querySelector('.clock');
+      const subEl = document.querySelector('.sub');
+      const counterEl = document.querySelector('.counter .pill');
 
-  async function tick(){
-    try{
-      const r = await fetch(`/api/monitor_status?session_id=${sessionId}`, {cache:'no-store'});
-      if(!r.ok) return;
-      const data = await r.json();
-      if(clockEl) clockEl.textContent = data.ora_curenta || '--:--';
-      if(subEl) subEl.textContent = `Fereastră check‑in: ${data.window_label}. Bife verzi = prezenți.`;
-      if(counterEl) counterEl.textContent = `${data.present_count} / ${data.total}`;
-    }catch(e){ /* ignorăm erorile intermitente */ }
-    setTimeout(tick, 3000);
-  }
-  tick();
-})();
+      async function tick(){
+        try{
+          const r = await fetch(`/api/monitor_status?session_id=${sessionId}`, {cache:'no-store'});
+          if(!r.ok) return;
+          const data = await r.json();
+          if(clockEl) clockEl.textContent = data.ora_curenta || '--:--';
+          if(subEl) subEl.textContent = `Fereastră check‑in: ${data.window_label}. Bife verzi = prezenți.`;
+          if(counterEl) counterEl.textContent = `${data.present_count} / ${data.total}`;
+        }catch(e){ /* ignorăm erorile intermitente */ }
+        setTimeout(tick, 3000);
+      }
+      tick();
+    })();
 </script>
+
+<script>
+    (function(){
+      // ia param din URL, nu din Jinja
+      const sessionId = Number(new URLSearchParams(location.search).get('session_id'));
+      if (!sessionId) {
+        console.warn('Lipsește ?session_id= din URL-ul /monitor');
+        return; // evităm fetch-uri 400
+      }
+
+      const clockEl   = document.querySelector('.clock');
+      const subEl     = document.querySelector('.sub');
+      const counterEl = document.querySelector('.counter .pill');
+      const qrImg     = document.querySelector('.qr-box img');
+      const qrTitleEl = document.getElementById('qr-title');
+      const qrDebugEl = document.getElementById('qr-debug');
+
+      let lastToken = null;
+
+      async function tick(){
+        try{
+          const r = await fetch(`/api/monitor_status?session_id=${sessionId}`, {cache:'no-store'});
+          if(!r.ok) return;
+          const data = await r.json();
+
+          if(clockEl) clockEl.textContent = data.ora_curenta || '--:--';
+          if(subEl)   subEl.textContent   = `Fereastră: ${data.window_label || ''}. Bife verzi = prezenți.`;
+          if(counterEl) counterEl.textContent = `${data.present_count} / ${data.total}`;
+
+          if(qrTitleEl) qrTitleEl.textContent = (data.phase === 'end') ? 'Cod de final de oră' : 'Cod de început de oră';
+
+          if(data.qr_token && data.qr_token !== lastToken){
+            lastToken = data.qr_token;
+            const v = encodeURIComponent(data.ora_curenta || Date.now());
+            if(qrImg)   qrImg.src = `/qr.png?token=${data.qr_token}&v=${v}`;
+            if(qrDebugEl) qrDebugEl.textContent = `${location.origin}/elev?token=${data.qr_token}`;
+          }
+        }catch(e){ /* ignorăm erorile intermitente */ }
+        setTimeout(tick, 3000);
+      }
+      tick();
+    })();
+</script>
+
+
 </body>
 </html>

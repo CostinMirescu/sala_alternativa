@@ -35,6 +35,13 @@ def _status_for(delta_seconds: int) -> str | None:
     return None  # expirat
 
 
+def _checkout_allowed(now, ends_at):
+    delta = (now - ends_at).total_seconds()
+    if delta < -300: return "early"   # cu >5 min înainte de final
+    if delta >  300: return "late"    # la >5 min după final
+    return "ok"
+
+
 # --- Monitor ---
 @bp.get("/monitor")
 def monitor():
@@ -55,8 +62,11 @@ def monitor():
 
     class_id = sess["class_id"]
     starts_at = _parse_iso(sess["starts_at"])  # aware
+    ends_at = _parse_iso(sess["ends_at"])
     now = datetime.now(tz=current_app.config["TZ"])
     delta = int((now - starts_at).total_seconds())
+
+    phase = "start" if now < (ends_at - timedelta(minutes=5)) else "end"
 
     # coduri autorizate pentru clasă
     cur.execute("SELECT code4_hash FROM authorized_code WHERE class_id=? ORDER BY id", (class_id,))
@@ -77,6 +87,7 @@ def monitor():
         codes_ui.append({"hash": h, "masked": "••**", "status": st})
 
     present_count = sum(1 for c in codes_ui if c["status"] in ("prezent","întârziat"))
+    left_count = sum(1 for c in codes_ui if c["status"] == "plecat")
 
     # etichetă fereastră
     if delta < 0:
@@ -91,10 +102,13 @@ def monitor():
     # ora curentă pentru header (server-side)
     ora_curenta = now.strftime("%H:%M")
 
+    phase = "start" if now < (ends_at - timedelta(minutes=5)) else "end"
+
     from app import get_qr_serializer  # dacă l-ai pus în __init__.py
     s = get_qr_serializer(current_app)
-    qr_payload = {"session_id": session_id, "phase": "start"}
-    qr_token = s.dumps(qr_payload)
+    qr_token = s.dumps({"session_id": session_id, "phase": phase})
+    print(f"http://127.0.0.1:5000/elev?token={qr_token}")
+    qr_title = "Cod de început de oră" if phase == "start" else "Cod de final de oră"
 
     return render_template(
         "monitor.html",
@@ -105,165 +119,182 @@ def monitor():
         present_count=present_count,
         total=len(codes_ui),
         codes=codes_ui,
-        qr_token=qr_token
+        qr_token=qr_token,
+        qr_title=qr_title,
+        left_count=left_count,
+        phase=phase
     )
 
 
 # --- Elev ---
 @bp.route("/elev", methods=["GET", "POST"])
 def elev():
-    session_id = request.args.get("session_id", type=int)
+    # 1) culegem parametrii atât din query, cât și din POST
+    session_id = request.args.get("session_id", type=int) or request.form.get("session_id", type=int)
+    token = request.args.get("token") or request.form.get("token")
+    token_phase = None
     message = None
     status_final = None
 
-    token = request.args.get("token")
     if token:
-        # token → extragem session_id; expiră după QR_MAX_AGE
         s = get_qr_serializer(current_app)
         try:
             data = s.loads(token, max_age=current_app.config["QR_MAX_AGE"])
         except SignatureExpired:
-            return render_template("elev.html", session_id=None, message="Token expirat", status_final=None)
+            return render_template("elev.html", session_id=session_id, message="Token expirat", status_final=None)
         except BadSignature:
-            return render_template("elev.html", session_id=None, message="Token invalid", status_final=None)
+            return render_template("elev.html", session_id=session_id, message="Token invalid", status_final=None)
 
-        # siguranță: verificăm phase=start
-        if data.get("phase") != "start":
-            return render_template("elev.html", session_id=None, message="Token nepotrivit pentru check-in",
-                                   status_final=None)
-
-        session_id = int(data.get("session_id", 0)) or None
+        token_phase = data.get("phase")        # "start" sau "end"
+        session_id = int(data.get("session_id") or 0) or session_id
 
     if not session_id:
-        return "Lipsește ?session_id=...", 400
+        return render_template("elev.html", session_id=None, message="Lipsește ?session_id=... sau token", status_final=None)
 
-    message = None
-    status_final = None
+    if request.method == "GET":
+        return render_template("elev.html", session_id=session_id, message=None, status_final=None)
 
-    if request.method == "POST":
-        # avem 4 inputuri cu câte o cifră (ex. d1..d4)
-        d1 = (request.form.get("d1") or "").strip()
-        d2 = (request.form.get("d2") or "").strip()
-        d3 = (request.form.get("d3") or "").strip()
-        d4 = (request.form.get("d4") or "").strip()
-        code4 = f"{d1}{d2}{d3}{d4}"
+    # --- POST: preluăm codul de 4 cifre ---
+    d1 = (request.form.get("d1") or "").strip()
+    d2 = (request.form.get("d2") or "").strip()
+    d3 = (request.form.get("d3") or "").strip()
+    d4 = (request.form.get("d4") or "").strip()
+    code4 = f"{d1}{d2}{d3}{d4}"
 
-        if len(code4) != 4 or not code4.isdigit():
-            message = "Cod invalid — introdu exact 4 cifre"
-        else:
-            conn = get_connection()
-            cur = conn.cursor()
-            cur.execute("SELECT id, class_id, starts_at FROM session WHERE id=?", (session_id,))
-            sess = cur.fetchone()
-            if not sess:
-                conn.close()
-                return "Sesiune inexistentă", 404
+    if len(code4) != 4 or not code4.isdigit():
+        return render_template("elev.html", session_id=session_id, message="Cod invalid — introdu exact 4 cifre", status_final=None)
 
-            class_id = sess["class_id"]
-            starts_at = _parse_iso(sess["starts_at"])  # aware
-            now = datetime.now(tz=current_app.config["TZ"])
-            delta = int((now - starts_at).total_seconds())
+    conn = get_connection()
+    cur = conn.cursor()
 
-            st = _status_for(delta)
-            if st is None:
-                message = "Fereastra de check‑in a expirat"
-            else:
-                code_hash = _hash_code(class_id, code4)
-                # verificăm că există în lista autorizată
-                cur.execute(
-                    "SELECT 1 FROM authorized_code WHERE class_id=? AND code4_hash=?",
-                    (class_id, code_hash),
-                )
-                if not cur.fetchone():
-                    message = "Cod neautorizat pentru această clasă"
-                else:
-                    # --- Anti‑fraud rules ---
-                    device_id = (request.form.get("device_id") or "").strip()
-                    if not device_id:
-                        message = "Lipsește identificatorul dispozitivului"
-                    else:
-                        # 1) Rate limit: max 3 încercări în 60s per device per sesiune
-                        cur.execute(
-                            "SELECT COUNT(*) FROM attempt_log WHERE session_id=? AND device_id=? AND ts >= ?",
-                            (session_id, device_id, (now - timedelta(seconds=60)).strftime("%Y-%m-%dT%H:%M:%S%z")),
-                        )
-                        attempts_last_min = cur.fetchone()[0]
-                        if attempts_last_min >= 3:
-                            # log și refuz
-                            cur.execute(
-                                "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts) VALUES (?,?,?,?,?,?,?,?,?)",
-                                (session_id, class_id, device_id, None, 0, "rate-limit", request.remote_addr,
-                                 request.headers.get("User-Agent", ""), now.strftime("%Y-%m-%dT%H:%M:%S%z")),
-                            )
-                            conn.commit()
-                            message = "Prea multe încercări. Încearcă din nou peste un minut."
-                            conn.close()
-                            return render_template("elev.html", session_id=session_id, message=message,
-                                                   status_final=None)
+    cur.execute("SELECT id, class_id, starts_at, ends_at FROM session WHERE id=?", (session_id,))
+    sess = cur.fetchone()
+    if not sess:
+        conn.close()
+        return render_template("elev.html", session_id=session_id, message="Sesiune inexistentă", status_final=None)
 
-                        # 2) Același device a înregistrat deja ALT cod la această sesiune?
-                        cur.execute(
-                            "SELECT DISTINCT code4_hash FROM attendance WHERE session_id=? AND class_id=? AND code4_hash IS NOT NULL",
-                            (session_id, class_id),
-                        )
-                        used_hashes = {row[0] for row in cur.fetchall()}
-                        if used_hashes and (code_hash not in used_hashes):
-                            cur.execute(
-                                "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts) VALUES (?,?,?,?,?,?,?,?,?)",
-                                (session_id, class_id, device_id, code_hash, 0, "device-used-for-other-code",
-                                 request.remote_addr, request.headers.get("User-Agent", ""),
-                                 now.strftime("%Y-%m-%dT%H:%M:%S%z")),
-                            )
-                            conn.commit()
-                            message = "Acest dispozitiv a fost folosit deja pentru alt cod la această oră."
-                            conn.close()
-                            return render_template("elev.html", session_id=session_id, message=message,
-                                                   status_final=None)
+    class_id = sess["class_id"]
+    starts_at = _parse_iso(sess["starts_at"])
+    ends_at   = _parse_iso(sess["ends_at"])
 
-                        # 3) Cod deja folosit (un check‑in per elev per sesiune)
-                        cur.execute(
-                            "SELECT 1 FROM attendance WHERE session_id=? AND code4_hash=?",
-                            (session_id, code_hash),
-                        )
-                        if cur.fetchone():
-                            cur.execute(
-                                "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts) VALUES (?,?,?,?,?,?,?,?,?)",
-                                (session_id, class_id, device_id, code_hash, 0, "duplicate-code", request.remote_addr,
-                                 request.headers.get("User-Agent", ""), now.strftime("%Y-%m-%dT%H:%M:%S%z")),
-                            )
-                            conn.commit()
-                            message = "Acest cod a fost deja folosit pentru această oră."
-                            conn.close()
-                            return render_template("elev.html", session_id=session_id, message=message,
-                                                   status_final=None)
-                    # încercăm să insertăm attendance (unică per (session_id, code4_hash))
-                    try:
-                        cur.execute(
-                            "INSERT INTO attendance(session_id, class_id, code4_hash, status, check_in_at)"
-                            " VALUES (?,?,?,?,?)",
-                            (session_id, class_id, code_hash, st, now.strftime("%Y-%m-%dT%H:%M:%S%z")),
-                        )
-                        conn.commit()
-                        status_final = st
-                        message = "Te-ai înregistrat cu succes"
-                        cur.execute(
-                            "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts) VALUES (?,?,?,?,?,?,?,?,?)",
-                            (session_id, class_id, device_id, code_hash, 1, "ok", request.remote_addr,
-                             request.headers.get("User-Agent", ""), now.strftime("%Y-%m-%dT%H:%M:%S%z")),
-                        )
-                    except Exception:
-                        # există deja o înregistrare
-                        message = "Ai fost deja înregistrat pentru această oră"
-                    finally:
-                        conn.close()
+    now = datetime.now(tz=current_app.config["TZ"])
+    delta = int((now - starts_at).total_seconds())
 
-    # Pentru GET sau după POST, afișăm pagina cu mesaj/status
-    return render_template(
-        "elev.html",
-        session_id=session_id,
-        message=message,
-        status_final=status_final,
+    # cod autorizat?
+    code_hash = _hash_code(class_id, code4)
+    cur.execute("SELECT 1 FROM authorized_code WHERE class_id=? AND code4_hash=?", (class_id, code_hash))
+    if not cur.fetchone():
+        conn.close()
+        return render_template("elev.html", session_id=session_id, message="Cod neautorizat pentru această clasă", status_final=None)
+
+    # ===== CHECK-OUT (phase=end) =====
+    if token_phase == "end":
+        # fereastră de check-out: [-5m, +5m] față de ends_at
+        win = _checkout_allowed(now, ends_at)
+        if win == "early":
+            conn.close()
+            return render_template("elev.html", session_id=session_id, message="Check-out disponibil cu 5 minute înainte de final.", status_final=None)
+        if win == "late":
+            conn.close()
+            return render_template("elev.html", session_id=session_id, message="Fereastra de check-out a expirat.", status_final=None)
+
+        # trebuie să existe check-in anterior
+        cur.execute("SELECT 1 FROM attendance WHERE session_id=? AND code4_hash=?", (session_id, code_hash))
+        if not cur.fetchone():
+            conn.close()
+            return render_template("elev.html", session_id=session_id, message="Nu poți face check-out fără check-in pentru această oră.", status_final=None)
+
+        cur.execute(
+            "UPDATE attendance SET status=?, check_out_at=? WHERE session_id=? AND code4_hash=?",
+            ("plecat", now.strftime("%Y-%m-%dT%H:%M:%S%z"), session_id, code_hash),
+        )
+        conn.commit()
+        conn.close()
+        return render_template("elev.html", session_id=session_id, message="Check-out înregistrat. O oră bună!", status_final="plecat")
+
+    # ===== CHECK-IN (phase=start sau fără token) =====
+    st = _status_for(delta)  # None dacă în afara ferestrei 0-10 min
+    if st is None:
+        conn.close()
+        return render_template("elev.html", session_id=session_id, message="Fereastra de check-in a expirat (după 10 minute de la început)", status_final=None)
+
+    # Anti-fraud (device_id + rate-limit + device folosit pt. alt cod + duplicat)
+    device_id = (request.form.get("device_id") or "").strip()
+    if not device_id:
+        conn.close()
+        return render_template("elev.html", session_id=session_id, message="Lipsește identificatorul dispozitivului", status_final=None)
+
+    # 1) Rate limit
+    cur.execute(
+        "SELECT COUNT(*) FROM attempt_log WHERE session_id=? AND device_id=? AND ts >= ?",
+        (session_id, device_id, (now - timedelta(seconds=60)).strftime("%Y-%m-%dT%H:%M:%S%z")),
     )
+    if cur.fetchone()[0] >= 3:
+        cur.execute(
+            "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (session_id, class_id, device_id, None, 0, "rate-limit", request.remote_addr,
+             request.headers.get("User-Agent",""), now.strftime("%Y-%m-%dT%H:%M:%S%z")),
+        )
+        conn.commit()
+        conn.close()
+        return render_template("elev.html", session_id=session_id, message="Prea multe încercări. Încearcă din nou peste un minut.", status_final=None)
+
+    # 2) Același device folosit pentru alt cod?
+    cur.execute(
+        "SELECT DISTINCT code4_hash FROM attendance WHERE session_id=? AND class_id=? AND code4_hash IS NOT NULL",
+        (session_id, class_id),
+    )
+    used_hashes = {row[0] for row in cur.fetchall()}
+    if used_hashes and (code_hash not in used_hashes):
+        cur.execute(
+            "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (session_id, class_id, device_id, code_hash, 0, "device-used-for-other-code",
+             request.remote_addr, request.headers.get("User-Agent",""), now.strftime("%Y-%m-%dT%H:%M:%S%z")),
+        )
+        conn.commit()
+        conn.close()
+        return render_template("elev.html", session_id=session_id, message="Acest dispozitiv a fost folosit deja pentru alt cod la această oră.", status_final=None)
+
+    # 3) Duplicat: același cod deja a făcut check-in
+    cur.execute("SELECT 1 FROM attendance WHERE session_id=? AND code4_hash=?", (session_id, code_hash))
+    if cur.fetchone():
+        cur.execute(
+            "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (session_id, class_id, device_id, code_hash, 0, "duplicate-code",
+             request.remote_addr, request.headers.get("User-Agent",""), now.strftime("%Y-%m-%dT%H:%M:%S%z")),
+        )
+        conn.commit()
+        conn.close()
+        return render_template("elev.html", session_id=session_id, message="Acest cod a fost deja folosit pentru această oră.", status_final=None)
+
+    # Insert check-in
+    try:
+        cur.execute(
+            "INSERT INTO attendance(session_id, class_id, code4_hash, status, check_in_at)"
+            " VALUES (?,?,?,?,?)",
+            (session_id, class_id, code_hash, st, now.strftime("%Y-%m-%dT%H:%M:%S%z")),
+        )
+        conn.commit()
+        # log succes
+        cur.execute(
+            "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (session_id, class_id, device_id, code_hash, 1, "ok",
+             request.remote_addr, request.headers.get("User-Agent",""), now.strftime("%Y-%m-%dT%H:%M:%S%z")),
+        )
+        conn.commit()
+        status_final = st
+        message = "Te-ai înregistrat cu succes"
+    except Exception:
+        message = "Ai fost deja înregistrat pentru această oră"
+    finally:
+        conn.close()
+
+    return render_template("elev.html", session_id=session_id, message=message, status_final=status_final)
+
 
 
 @bp.get("/api/monitor_status")
@@ -283,8 +314,10 @@ def api_monitor_status():
 
     class_id = sess["class_id"]
     starts_at = _parse_iso(sess["starts_at"])  # aware
+    ends_at = _parse_iso(sess["ends_at"])
     now = datetime.now(tz=current_app.config["TZ"])  # TZ corect
     delta = int((now - starts_at).total_seconds())
+    phase = "start" if now < (ends_at - timedelta(minutes=5)) else "end"
 
     # coduri autorizate pentru clasă
     cur.execute("SELECT code4_hash FROM authorized_code WHERE class_id=? ORDER BY id", (class_id,))
@@ -307,6 +340,10 @@ def api_monitor_status():
     else:
         window_label = "expirat (>10 min)"
 
+    # token pentru faza curentă
+    s = get_qr_serializer(current_app)
+    qr_token = s.dumps({"session_id": session_id, "phase": phase})
+
     return jsonify({
         "class_id": class_id,
         "session_id": session_id,
@@ -314,7 +351,8 @@ def api_monitor_status():
         "window_label": window_label,
         "present_count": present_count,
         "total": total,
-        # putem trimite și lista, dacă vrei, dar pentru început e suficient contor + header
+        "phase": phase,
+        "qr_token": qr_token,          # <— IMPORTANT
     })
 
 
