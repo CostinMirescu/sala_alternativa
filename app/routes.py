@@ -74,17 +74,20 @@ def monitor():
 
     # attendance curent pentru sesiune
     cur.execute(
-        "SELECT code4_hash, status FROM attendance WHERE session_id=?",
-        (session_id,),
+        "SELECT code4_hash, code4_plain FROM authorized_code WHERE class_id=? ORDER BY id",
+        (class_id,),
     )
-    status_map = {row[0]: row[1] for row in cur.fetchall()}
-    conn.close()
+    rows = cur.fetchall()
 
-    # proiectăm pentru UI (fără a expune codul real): afișăm mascat ultimele 2 cifre
+    cur.execute("SELECT code4_hash, status FROM attendance WHERE session_id=?", (session_id,))
+    status_map = {row[0]: row[1] for row in cur.fetchall()}
+
     codes_ui = []
-    for h in code_hashes:
+    for r in rows:
+        h = r[0]
+        code4 = (r[1] or "").strip() or "????"  # fallback dacă nu e populat încă
         st = status_map.get(h, "neconfirmat")
-        codes_ui.append({"hash": h, "masked": "••**", "status": st})
+        codes_ui.append({"code4": code4, "status": st})
 
     present_count = sum(1 for c in codes_ui if c["status"] in ("prezent","întârziat"))
     left_count = sum(1 for c in codes_ui if c["status"] == "plecat")
@@ -107,9 +110,8 @@ def monitor():
     from app import get_qr_serializer  # dacă l-ai pus în __init__.py
     s = get_qr_serializer(current_app)
     qr_token = s.dumps({"session_id": session_id, "phase": phase})
-    print(f"http://127.0.0.1:5000/elev?token={qr_token}")
     qr_title = "Cod de început de oră" if phase == "start" else "Cod de final de oră"
-
+    print(codes_ui)
     return render_template(
         "monitor.html",
         class_id=class_id,
