@@ -1,0 +1,63 @@
+{% set title = "Monitor – Sala Alternativă" %}
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title }}</title>
+  <meta http-equiv="refresh" content="10"> <!-- auto-refresh simplu -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ config['ASSET_VER'] }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/monitor.css') }}?v={{ config['ASSET_VER'] }}">
+
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="clock" aria-live="polite">{{ ora_curenta }}</div>
+      <div class="class-pill">Acum la religie: <strong>Clasa {{ class_id }}</strong></div>
+    </header>
+
+    <main class="main">
+      <section class="card" aria-labelledby="list-coduri">
+        <h2 id="list-coduri">Elevi care nu participă la ora de religie</h2>
+        <p class="sub">Fereastră check‑in: {{ window_label }}. Bife verzi = prezenți.</p>
+        <div class="codes" role="list">
+          {% for c in codes %}
+          <div class="code" role="listitem">
+            <b>••{{ loop.index0 ~ loop.index0 }}</b> <!-- mascăm; poți înlocui cu altă logică -->
+            {% if c.status == 'prezent' %}
+              <span class="badge present" title="prezent"><span class="dot"></span> prezent</span>
+            {% elif c.status == 'întârziat' %}
+              <span class="badge late" title="întârziat"><span class="dot"></span> întârziat</span>
+            {% else %}
+              <span class="badge missing" title="neconfirmat">neconfirmat</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <div class="counter" aria-live="polite">
+          Prezenți: <span class="pill">{{ present_count }} / {{ total }}</span>
+        </div>
+      </section>
+
+      <aside class="card qr-panel" aria-labelledby="qr-title">
+        <h2 id="qr-title">Cod de început de oră</h2>
+        <div class="qr-box" aria-label="cod QR — scanează pentru a confirma prezența">
+          <!-- Placeholder QR (într-o verticală ulterioară îl generăm dinamic) -->
+          <!-- SVG-ul tău rămas aici -->
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="QR placeholder">
+            <rect width="200" height="200" fill="#fff"/>
+            <!-- ... restul SVG-ului tău ... -->
+          </svg>
+        </div>
+        <div class="qr-caption">Scanează pentru a-ți confirma prezența</div>
+      </aside>
+    </main>
+
+    <footer>
+      <span>Template demo (static). În implementare, valorile vin din DB.</span>
+      <span class="fs-hint">Sfat: apasă <kbd>F11</kbd> pentru full-screen.</span>
+    </footer>
+  </div>
+</body>
+</html>

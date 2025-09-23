@@ -1,0 +1,89 @@
+ :root{
+      --bg: #0f172a;          /* slate-900 */
+      --panel: #111827;       /* gray-900 */
+      --muted: #94a3b8;       /* slate-400 */
+      --text: #e5e7eb;        /* gray-200 */
+      --accent: #22d3ee;      /* cyan-400 */
+      --ok: #34d399;          /* emerald-400 */
+      --warn: #f59e0b;        /* amber-500 */
+    }
+
+    html,body{height:100%;}
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 10% 10%, #0b1226 0%, var(--bg) 50%),
+                  radial-gradient(1200px 800px at 100% 0%, #0a1729 0%, var(--bg) 60%);
+      color: var(--text);
+    }
+
+    .wrap{display:grid; grid-template-rows:auto 1fr; min-height:100%;}
+
+    /* Header */
+    header{
+      display:grid; grid-template-columns: 1fr auto; align-items:center;
+      gap:2rem; padding:1.2rem 2rem; background: rgba(17,24,39,.6); backdrop-filter: blur(6px);
+      border-bottom: 1px solid rgba(148,163,184,.12);
+    }
+    .clock{font-size: clamp(2rem, 6vw, 5rem); font-weight:800; letter-spacing: .02em;}
+    .class-pill{font-size: clamp(1rem, 2.5vw, 1.25rem); color: var(--muted);}
+    .class-pill strong{ color: var(--accent); }
+
+    /* Main grid */
+    .main{display:grid; grid-template-columns: 2fr 1.2fr; gap:2rem; padding:2rem;}
+
+    .card{background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+          border:1px solid rgba(148,163,184,.12); border-radius: 18px; padding:1.25rem 1.25rem 1.5rem;}
+    .card h2{margin:.2rem 0 1rem; font-size: clamp(1.2rem, 2.8vw, 1.6rem); font-weight:700; letter-spacing:.01em}
+    .sub{color: var(--muted); font-size:.95rem;}
+
+    /* Codes list */
+    .codes{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); /* era 160/200px */
+  gap:.9rem;
+}
+    .code{
+  display:flex; align-items:center; justify-content:space-between; gap:.75rem;
+  background:#0b1328; border:1px solid rgba(148,163,184,.14);
+  border-radius:14px; padding:1rem 1.1rem;           /* padding ușor mărit */
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
+  min-width:0;
+}
+    .code b{letter-spacing:.08em; font-size:1.1rem}
+    .badge{
+  display:inline-flex; align-items:center; gap:.5rem;
+  padding:.25rem .7rem; border-radius:999px; font-size:.9rem;
+  white-space: nowrap;            /* nu mai desparte cuvinte */
+  flex:0 0 auto;                  /* nu se micșorează sub conținut */
+}
+    .present{background: rgba(52,211,153,.15); color:#86efac; border:1px solid rgba(52,211,153,.35)}
+    .missing{background: rgba(148,163,184,.12); color:#ff0000; border:1px solid rgba(148,163,184,.25)}
+    .late{background: rgba(148,163,184,.12); color:#ffff00; border:1px solid rgba(148,163,184,.25)}
+    .badge .dot{width:.6rem; height:.6rem; border-radius:50%; background: currentColor; opacity:.9}
+
+    /* Right side: QR & Counter */
+    .qr-panel{display:grid; grid-template-rows: auto 1fr auto; row-gap:1rem; justify-items:center; text-align:center}
+    .qr-box{aspect-ratio:1/1; width:min(52vmin, 520px); border-radius:16px; overflow:hidden; border:1px solid rgba(148,163,184,.18);
+            background:#fff; display:grid; place-items:center;}
+    .qr-caption{color:var(--muted)}
+
+    /* Fake QR SVG styling (placeholder) */
+    .qr-box svg{width:100%; height:100%; display:block}
+
+    .counter{
+      margin-top: .5rem; display:flex; align-items:center; gap:.75rem; font-size: clamp(1.3rem, 4.5vw, 2rem);
+      font-weight:800; letter-spacing:.02em
+    }
+    .counter .pill{background: rgba(34,211,238,.12); color:#67e8f9; border:1px solid rgba(34,211,238,.35);
+                   padding:.35rem .85rem; border-radius:999px; font-size: .9rem; font-weight:600}
+
+    /* Footer note */
+    footer{padding:1rem 2rem; color:var(--muted); font-size:.9rem; border-top:1px solid rgba(148,163,184,.12)}
+
+    /* Fullscreen helper */
+    .fs-hint{float:right; opacity:.7}
+
+    @media (max-width: 1000px){
+      .main{grid-template-columns:1fr;}
+    }
