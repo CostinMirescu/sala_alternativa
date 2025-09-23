@@ -1,0 +1,72 @@
+:root{
+      --bg:#0f172a;           /* slate-900 */
+      --panel:#111827;        /* gray-900 */
+      --muted:#94a3b8;        /* slate-400 */
+      --text:#e5e7eb;         /* gray-200 */
+      --accent:#22d3ee;       /* cyan-400 */
+      --ok:#34d399;           /* emerald-400 */
+      --danger:#ef4444;       /* red-500 */
+      --shadow: 0 10px 30px rgba(2,6,23,.35);
+    }
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 800px at 10% 10%,#0b1226 0%,var(--bg) 50%),
+                    radial-gradient(1200px 800px at 100% 0%,#0a1729 0%,var(--bg) 60%);
+         font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Helvetica Neue",Arial; color:var(--text);}
+
+    .wrap{min-height:100%;display:grid;place-items:center;padding:24px}
+
+    /* Telefon mock */
+    .phone{width:min(380px,92vw); max-height:92vh; aspect-ratio:9/19.5; display:flex; flex-direction:column;
+           position:relative;
+           background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
+           border:1px solid rgba(148,163,184,.12); border-radius:28px; box-shadow: var(--shadow); padding:24px 22px 26px}
+
+
+    header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px}
+    .brand{font-weight:800; letter-spacing:.02em}
+    .brand b{color:var(--accent)}
+    .time{font-weight:700; opacity:.8}
+
+    .title{font-size:1.25rem; font-weight:800; margin:6px 0 4px}
+    .sub{color:var(--muted); font-size:.95rem}
+
+    .success{display:flex; align-items:center; gap:.6rem; margin:16px 0 10px; padding:.6rem .8rem;
+             border-radius:14px; border:1px solid rgba(52,211,153,.35); background:rgba(52,211,153,.12);
+             color:#86efac; font-weight:600}
+    .success .dot{width:.6rem;height:.6rem;border-radius:999px;background:var(--ok)}
+
+    .code-boxes{display:flex; gap:.6rem; margin:18px 0}
+    .code-boxes input{
+      width:58px; height:62px; border-radius:16px; text-align:center; font-size:2rem; font-weight:800; letter-spacing:.08em;
+      background:#0b1328; color:var(--text); border:1px solid rgba(148,163,184,.18);
+      outline:none; box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
+    }
+    .code-boxes input:focus{border-color: var(--accent); box-shadow:0 0 0 3px rgba(34,211,238,.25)}
+
+    .hint{color:var(--muted); font-size:.9rem}
+
+    .actions{margin-top:18px; display:flex; gap:.75rem}
+    .btn{flex:1; padding:14px 16px; border-radius:14px; font-weight:800; letter-spacing:.02em; text-align:center; cursor:pointer;
+         background:linear-gradient(180deg, rgba(34,211,238,.25), rgba(34,211,238,.18));
+         border:1px solid rgba(34,211,238,.45); color:#67e8f9;}
+    .btn.secondary{background:transparent; border-color: rgba(148,163,184,.35); color:var(--muted)}
+
+    /* Mic layout helper pt. ecrane foarte înguste */
+    @media (max-width: 400px){
+      .code-boxes input{width:50px;height:56px}
+    }
+    }
+    /* Status bar + notch + centered content */
+    .statusbar{position:relative; display:flex; align-items:center; justify-content:space-between; margin-top:2px; margin-bottom:6px;}
+    .statusbar .sb-time{font-weight:700; opacity:.85}
+    .statusbar .left, .statusbar .right{display:flex; align-items:center; gap:.5rem; opacity:.8}
+    .signal i{display:inline-block; width:3px; height:8px; background:#e5e7eb; margin-right:2px; border-radius:2px}
+    .signal i:nth-child(2){height:10px} .signal i:nth-child(3){height:12px} .signal i:nth-child(4){height:14px}
+    .battery{position:relative; display:inline-flex; align-items:center}
+    .battery b{display:inline-block; width:22px; height:12px; border:2px solid #e5e7eb; border-radius:3px;}
+    .battery em{display:inline-block; width:3px; height:6px; background:#e5e7eb; margin-left:3px; border-radius:1px}
+
+    .notch{position:absolute; top:6px; left:50%; transform:translateX(-50%); width:120px; height:26px; border-radius:0 0 16px 16px;
+           background:#0b1328; border:1px solid rgba(148,163,184,.18); box-shadow: inset 0 0 0 1px rgba(255,255,255,.02)}
+
+    .content{flex:1; display:flex; flex-direction:column; justify-content:center;}

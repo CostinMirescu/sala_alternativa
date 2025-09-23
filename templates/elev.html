@@ -1,0 +1,49 @@
+{% set title = "Check‑in – Cod de 4 cifre" %}
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ config['ASSET_VER'] }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/elev.css') }}?v={{ config['ASSET_VER'] }}">
+
+</head>
+<body>
+  <div class="wrap">
+    <div class="phone" role="region" aria-label="Ecran check-in – cod de 4 cifre">
+      <div class="notch" aria-hidden="true"></div>
+      <div class="statusbar" aria-hidden="true">
+        <div class="left"><span class="signal"><i></i><i></i><i></i><i></i></span></div>
+        <div class="sb-time">--:--</div>
+        <div class="right"><span class="battery"><b></b><em></em></span></div>
+      </div>
+      <header>
+        <div class="brand">Sala <b>Alternativă</b></div>
+        <div class="time">&nbsp;</div>
+      </header>
+
+      <div class="content">
+        <div class="title">Confirmă prezența</div>
+        <div class="sub">Introdu codul tău de 4 cifre, apoi apasă „Confirmă”.</div>
+        {% if message %}
+          <div class="success" aria-live="polite"><span class="dot"></span> {{ message }}{% if status_final %} — <b>{{ status_final }}</b>{% endif %}</div>
+        {% endif %}
+        <form class="code" action="{{ url_for('main.elev') }}?session_id={{ session_id }}" method="post" autocomplete="one-time-code">
+          <div class="code-boxes" aria-label="Introdu codul din 4 cifre">
+            <input name="d1" type="text" inputmode="numeric" maxlength="1" aria-label="Cifra 1" />
+            <input name="d2" type="text" inputmode="numeric" maxlength="1" aria-label="Cifra 2" />
+            <input name="d3" type="text" inputmode="numeric" maxlength="1" aria-label="Cifra 3" />
+            <input name="d4" type="text" inputmode="numeric" maxlength="1" aria-label="Cifra 4" />
+          </div>
+          <div class="hint">Identificator: 4 cifre (definit de școală). Nu salvăm nume.</div>
+          <div class="actions">
+            <button class="btn" type="submit">Confirmă</button>
+            <button class="btn secondary" type="reset">Șterge</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
