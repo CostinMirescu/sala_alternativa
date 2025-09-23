@@ -43,12 +43,8 @@
       <aside class="card qr-panel" aria-labelledby="qr-title">
         <h2 id="qr-title">Cod de început de oră</h2>
         <div class="qr-box" aria-label="cod QR — scanează pentru a confirma prezența">
-          <!-- Placeholder QR (într-o verticală ulterioară îl generăm dinamic) -->
-          <!-- SVG-ul tău rămas aici -->
-          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="QR placeholder">
-            <rect width="200" height="200" fill="#fff"/>
-            <!-- ... restul SVG-ului tău ... -->
-          </svg>
+          <img src="{{ url_for('main.qr_png') }}?token={{ qr_token }}&v={{ ora_curenta }}" alt="QR check-in">
+
         </div>
         <div class="qr-caption">Scanează pentru a-ți confirma prezența</div>
       </aside>
