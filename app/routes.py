@@ -1,9 +1,16 @@
 from __future__ import annotations
 from flask import Blueprint, render_template, request, redirect, url_for
 from datetime import datetime, timezone, timedelta
+
+from . import get_qr_serializer
 from .db import get_connection, _hash_code
 from flask import current_app
 from flask import jsonify
+from flask import send_file, current_app
+from io import BytesIO
+import qrcode
+from itsdangerous import BadSignature, SignatureExpired
+
 
 bp = Blueprint("main", __name__)
 
@@ -84,6 +91,11 @@ def monitor():
     # ora curentă pentru header (server-side)
     ora_curenta = now.strftime("%H:%M")
 
+    from app import get_qr_serializer  # dacă l-ai pus în __init__.py
+    s = get_qr_serializer(current_app)
+    qr_payload = {"session_id": session_id, "phase": "start"}
+    qr_token = s.dumps(qr_payload)
+
     return render_template(
         "monitor.html",
         class_id=class_id,
@@ -93,6 +105,7 @@ def monitor():
         present_count=present_count,
         total=len(codes_ui),
         codes=codes_ui,
+        qr_token=qr_token
     )
 
 
@@ -100,6 +113,27 @@ def monitor():
 @bp.route("/elev", methods=["GET", "POST"])
 def elev():
     session_id = request.args.get("session_id", type=int)
+    message = None
+    status_final = None
+
+    token = request.args.get("token")
+    if token:
+        # token → extragem session_id; expiră după QR_MAX_AGE
+        s = get_qr_serializer(current_app)
+        try:
+            data = s.loads(token, max_age=current_app.config["QR_MAX_AGE"])
+        except SignatureExpired:
+            return render_template("elev.html", session_id=None, message="Token expirat", status_final=None)
+        except BadSignature:
+            return render_template("elev.html", session_id=None, message="Token invalid", status_final=None)
+
+        # siguranță: verificăm phase=start
+        if data.get("phase") != "start":
+            return render_template("elev.html", session_id=None, message="Token nepotrivit pentru check-in",
+                                   status_final=None)
+
+        session_id = int(data.get("session_id", 0)) or None
+
     if not session_id:
         return "Lipsește ?session_id=...", 400
 
@@ -282,3 +316,18 @@ def api_monitor_status():
         "total": total,
         # putem trimite și lista, dacă vrei, dar pentru început e suficient contor + header
     })
+
+
+@bp.get("/qr.png")
+def qr_png():
+    token = request.args.get("token", type=str)
+    if not token:
+        return "missing token", 400
+    # URL pe care îl va deschide QR-ul pe telefon
+    # (folosim token, nu session_id, ca să nu poată fi modificat)
+    url = url_for("main.elev", token=token, _external=True)
+    img = qrcode.make(url)
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return send_file(buf, mimetype="image/png", max_age=0)

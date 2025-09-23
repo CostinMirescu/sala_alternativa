@@ -16,8 +16,9 @@ def create_app():
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret")
     app.config["TIMEZONE"] = os.getenv("TIMEZONE", "Europe/Bucharest")
     app.config["DATABASE_URL"] = os.getenv("DATABASE_URL", "sqlite:///instance/sala.db")
-
     app.config["TZ"] = ZoneInfo(app.config["TIMEZONE"])
+    app.config["QR_SALT"] = os.getenv("QR_SALT", "qr-signing-v1")
+    app.config["QR_MAX_AGE"] = int(os.getenv("QR_MAX_AGE", "900"))  # secunde
 
     from .routes import bp as main_bp
     app.register_blueprint(main_bp)
@@ -73,5 +74,14 @@ def create_app():
         click.echo(f"Session created id={s.id} for class {class_id} ({s.starts_at} → {s.ends_at})")
 
     return app
+
+
+from itsdangerous import URLSafeTimedSerializer
+
+
+def get_qr_serializer(app):
+    return URLSafeTimedSerializer(secret_key=app.config["SECRET_KEY"],
+                                  salt=app.config["QR_SALT"])
+
 
 from pathlib import Path  # noqa: E402  (used in CLI)
