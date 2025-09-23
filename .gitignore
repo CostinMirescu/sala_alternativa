@@ -12,3 +12,5 @@ Thumbs.db
 
 # SQLite
 *.db
+
+.idea
