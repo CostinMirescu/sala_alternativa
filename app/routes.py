@@ -3,6 +3,7 @@ from flask import Blueprint, render_template, request, redirect, url_for
 from datetime import datetime, timezone, timedelta
 from .db import get_connection, _hash_code
 from flask import current_app
+from flask import jsonify
 
 bp = Blueprint("main", __name__)
 
@@ -229,3 +230,55 @@ def elev():
         message=message,
         status_final=status_final,
     )
+
+
+@bp.get("/api/monitor_status")
+def api_monitor_status():
+    session_id = request.args.get("session_id", type=int)
+    if not session_id:
+        return jsonify({"error": "missing session_id"}), 400
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT id, class_id, starts_at, ends_at FROM session WHERE id=?", (session_id,))
+    sess = cur.fetchone()
+    if not sess:
+        conn.close()
+        return jsonify({"error": "session not found"}), 404
+
+    class_id = sess["class_id"]
+    starts_at = _parse_iso(sess["starts_at"])  # aware
+    now = datetime.now(tz=current_app.config["TZ"])  # TZ corect
+    delta = int((now - starts_at).total_seconds())
+
+    # coduri autorizate pentru clasă
+    cur.execute("SELECT code4_hash FROM authorized_code WHERE class_id=? ORDER BY id", (class_id,))
+    authorized = [r[0] for r in cur.fetchall()]
+
+    # statusuri curente pentru sesiune
+    cur.execute("SELECT code4_hash, status FROM attendance WHERE session_id=?", (session_id,))
+    status_map = {row[0]: row[1] for row in cur.fetchall()}
+    conn.close()
+
+    present_count = sum(1 for h in authorized if status_map.get(h) in ("prezent", "întârziat"))
+    total = len(authorized)
+
+    if delta < 0:
+        window_label = "nu a început"
+    elif delta < 5*60:
+        window_label = "verde (0–5 min)"
+    elif delta < 10*60:
+        window_label = "galben (5–10 min)"
+    else:
+        window_label = "expirat (>10 min)"
+
+    return jsonify({
+        "class_id": class_id,
+        "session_id": session_id,
+        "ora_curenta": now.strftime("%H:%M"),
+        "window_label": window_label,
+        "present_count": present_count,
+        "total": total,
+        # putem trimite și lista, dacă vrei, dar pentru început e suficient contor + header
+    })

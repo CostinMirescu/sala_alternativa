@@ -59,5 +59,27 @@
       <span class="fs-hint">Sfat: apasă <kbd>F11</kbd> pentru full-screen.</span>
     </footer>
   </div>
+
+<script>
+(function(){
+  const sessionId = {{ session_id|int }};
+  const clockEl = document.querySelector('.clock');
+  const subEl = document.querySelector('.sub');
+  const counterEl = document.querySelector('.counter .pill');
+
+  async function tick(){
+    try{
+      const r = await fetch(`/api/monitor_status?session_id=${sessionId}`, {cache:'no-store'});
+      if(!r.ok) return;
+      const data = await r.json();
+      if(clockEl) clockEl.textContent = data.ora_curenta || '--:--';
+      if(subEl) subEl.textContent = `Fereastră check‑in: ${data.window_label}. Bife verzi = prezenți.`;
+      if(counterEl) counterEl.textContent = `${data.present_count} / ${data.total}`;
+    }catch(e){ /* ignorăm erorile intermitente */ }
+    setTimeout(tick, 3000);
+  }
+  tick();
+})();
+</script>
 </body>
 </html>
