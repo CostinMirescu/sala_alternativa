@@ -101,3 +101,7 @@
   object-fit: contain;         /* să nu fie decupat */
   image-rendering: pixelated;  /* QR-ul arată mai clar la scalare */
 }
+.clock, .counter .pill { font-variant-numeric: tabular-nums; }
+.counter .pill { display:inline-block; min-width: 8ch; text-align:center; }
+.date { min-width: 12ch; display:inline-block; }
+

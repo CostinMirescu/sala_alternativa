@@ -104,7 +104,7 @@ def monitor():
 
     # ora curentă pentru header (server-side)
     ora_curenta = now.strftime("%H:%M")
-
+    data_curenta = now.strftime("%d %b %Y")
     phase = "start" if now < (ends_at - timedelta(minutes=5)) else "end"
 
     from app import get_qr_serializer  # dacă l-ai pus în __init__.py
@@ -124,36 +124,42 @@ def monitor():
         qr_token=qr_token,
         qr_title=qr_title,
         left_count=left_count,
-        phase=phase
+        phase=phase,
+        data_curenta=data_curenta
     )
 
 
 # --- Elev ---
 @bp.route("/elev", methods=["GET", "POST"])
 def elev():
-    # 1) culegem parametrii atât din query, cât și din POST
-    session_id = request.args.get("session_id", type=int) or request.form.get("session_id", type=int)
+    # Acceptă token din query SAU din POST (hidden field)
     token = request.args.get("token") or request.form.get("token")
+    session_id = None
     token_phase = None
-    message = None
-    status_final = None
 
-    if token:
-        s = get_qr_serializer(current_app)
-        try:
-            data = s.loads(token, max_age=current_app.config["QR_MAX_AGE"])
-        except SignatureExpired:
-            return render_template("elev.html", session_id=session_id, message="Token expirat", status_final=None)
-        except BadSignature:
-            return render_template("elev.html", session_id=session_id, message="Token invalid", status_final=None)
+    # Dacă a venit cu session_id în query, dar avem și token → redirect la varianta fără session_id
+    if request.method == "GET":
+        sid_in_qs = request.args.get("session_id")
+        if token and sid_in_qs:
+            return redirect(url_for("main.elev", token=token), code=302)
 
-        token_phase = data.get("phase")        # "start" sau "end"
-        session_id = int(data.get("session_id") or 0) or session_id
+    if not token:
+        return render_template("elev.html", session_id=None, message="Lipsește tokenul semnat din link.", status_final=None)
 
-    if not session_id:
-        return render_template("elev.html", session_id=None, message="Lipsește ?session_id=... sau token", status_final=None)
+    # Validare token + extragem session_id/faza
+    s = get_qr_serializer(current_app)
+    try:
+        data = s.loads(token, max_age=current_app.config["QR_MAX_AGE"])
+    except SignatureExpired:
+        return render_template("elev.html", session_id=None, message="Token expirat", status_final=None)
+    except BadSignature:
+        return render_template("elev.html", session_id=None, message="Token invalid", status_final=None)
+
+    token_phase = data.get("phase")            # "start" sau "end"
+    session_id  = int(data.get("session_id"))  # din token, nu din URL
 
     if request.method == "GET":
+        # doar randăm formularul; POST-ul va include tokenul ca hidden
         return render_template("elev.html", session_id=session_id, message=None, status_final=None)
 
     # --- POST: preluăm codul de 4 cifre ---
