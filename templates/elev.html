@@ -26,6 +26,8 @@
         {% endif %}
         <form class="code" action="{{ url_for('main.elev') }}?session_id={{ session_id }}" method="post" autocomplete="one-time-code">
           <div class="code-boxes" aria-label="Introdu codul din 4 cifre">
+            <input type="hidden" name="token" value="{{ request.args.get('token','') }}">
+            <input type="hidden" name="session_id" value="{{ session_id }}">
             <input name="d1" type="text" inputmode="numeric" maxlength="1" aria-label="Cifra 1" />
             <input name="d2" type="text" inputmode="numeric" maxlength="1" aria-label="Cifra 2" />
             <input name="d3" type="text" inputmode="numeric" maxlength="1" aria-label="Cifra 3" />

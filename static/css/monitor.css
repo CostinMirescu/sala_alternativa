@@ -21,7 +21,7 @@
     /* Header */
     header{
       display:grid; grid-template-columns: 1fr auto; align-items:center;
-      gap:2rem; padding:1.2rem 2rem; background: rgba(17,24,39,.6); backdrop-filter: blur(6px);
+      gap:0.5rem; padding:1.2rem 2rem; background: rgba(17,24,39,.6); backdrop-filter: blur(6px);
       border-bottom: 1px solid rgba(148,163,184,.12);
     }
     .clock{font-size: clamp(2rem, 6vw, 5rem); font-weight:800; letter-spacing: .02em;}
@@ -60,6 +60,7 @@
     .present{background: rgba(52,211,153,.15); color:#86efac; border:1px solid rgba(52,211,153,.35)}
     .missing{background: rgba(148,163,184,.12); color:#ff0000; border:1px solid rgba(148,163,184,.25)}
     .late{background: rgba(148,163,184,.12); color:#ffff00; border:1px solid rgba(148,163,184,.25)}
+    .gone{background: rgba(148,163,184,.12); color:#22d3ee; border:1px solid rgba(148,163,184,.25)}
     .badge .dot{width:.6rem; height:.6rem; border-radius:50%; background: currentColor; opacity:.9}
 
     /* Right side: QR & Counter */

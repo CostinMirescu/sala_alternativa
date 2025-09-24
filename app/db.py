@@ -102,6 +102,64 @@ def init_db() -> None:
         """
     )
 
+
+
+    try:
+        cur.execute("ALTER TABLE attendance ADD COLUMN check_out_at TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    # --- freeze snapshot columns on session (idempotent) ---
+    try:
+        cur.execute("ALTER TABLE session ADD COLUMN present_frozen INTEGER")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cur.execute("ALTER TABLE session ADD COLUMN present_frozen_at TEXT")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+
+    def _ensure_attendance_allows_plecat(conn):
+        cur = conn.cursor()
+        row = cur.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='attendance'"
+        ).fetchone()
+        if not row:
+            return  # tabela va fi creată oricum mai sus
+        create_sql = row[0] or ""
+        if "plecat" in create_sql:
+            return  # deja e ok
+
+        # Migrare: recreăm tabela cu CHECK extins
+        cur.execute("PRAGMA foreign_keys=OFF")
+        conn.commit()
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS attendance_new (
+                id INTEGER PRIMARY KEY,
+                session_id INTEGER NOT NULL,
+                class_id TEXT NOT NULL,
+                code4_hash TEXT,
+                status TEXT NOT NULL CHECK (status IN ('neconfirmat','prezent','întârziat','plecat')),
+                check_in_at TEXT,
+                check_out_at TEXT,
+                UNIQUE(session_id, code4_hash)
+            )
+        """)
+        # Copiem toate datele existente (coloanele trebuie să existe deja; ai adăugat check_out_at mai sus)
+        cur.execute("""
+            INSERT INTO attendance_new (id, session_id, class_id, code4_hash, status, check_in_at, check_out_at)
+            SELECT id, session_id, class_id, code4_hash, status, check_in_at, check_out_at
+            FROM attendance
+        """)
+        cur.execute("DROP TABLE attendance")
+        cur.execute("ALTER TABLE attendance_new RENAME TO attendance")
+        cur.execute("PRAGMA foreign_keys=ON")
+        conn.commit()
+
+    _ensure_attendance_allows_plecat(conn)
+
     conn.commit()
     conn.close()
 
