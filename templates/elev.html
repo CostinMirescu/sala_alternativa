@@ -27,6 +27,8 @@
             </div>
             {% endif %}
             <form class="code" action="{{ url_for('main.elev') }}" method="post" autocomplete="one-time-code">
+                <input type="hidden" name="token" value="{{ request.args.get('token','') }}">
+                <input type="hidden" name="device_id" id="device-id" value="">
                 <div class="code-boxes" aria-label="Introdu codul din 4 cifre">
                     <input class="digit" name="d1" inputmode="numeric" pattern="[0-9]*" maxlength="1"
                            aria-label="Cifra 1"/>
@@ -48,23 +50,33 @@
 </div>
 
 <script>
-    (function(){
-      try{
-        var key = 'sa_did';
-        var did = localStorage.getItem(key);
-        if(!did){
-          // generați un UUID simplu
-          did = 'did-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-          localStorage.setItem(key, did);
-          document.cookie = key + '=' + did + '; path=/; max-age=' + (60*60*24*365*2);
-        }
-        document.getElementById('device_id').value = did;
-      }catch(e){
-        // fallback simplu
-        document.getElementById('device_id').value = 'did-fallback-' + Date.now();
-      }
-    })();
+(function(){
+  // Generez un UUID v4 simplu
+  function uuidv4(){
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = crypto.getRandomValues(new Uint8Array(1))[0] & 15;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  // Citește sau creează un device_id persistent pe acest browser
+  function getDeviceId(){
+    const KEY = 'sa_device_id';
+    let id = localStorage.getItem(KEY);
+    if (!id) {
+      id = uuidv4();
+      try { localStorage.setItem(KEY, id); } catch(e) { /* fallback: tot îl trimitem o dată */ }
+    }
+    return id;
+  }
+
+  // Setează hidden-ul din formular
+  const devInput = document.getElementById('device-id');
+  if (devInput) devInput.value = getDeviceId();
+})();
 </script>
+
 
 <script>
 (function(){
