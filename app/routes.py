@@ -111,7 +111,7 @@ def monitor():
     s = get_qr_serializer(current_app)
     qr_token = s.dumps({"session_id": session_id, "phase": phase})
     qr_title = "Cod de început de oră" if phase == "start" else "Cod de final de oră"
-    print(codes_ui)
+
     return render_template(
         "monitor.html",
         class_id=class_id,
@@ -386,6 +386,8 @@ def api_monitor_status():
     else:
         present_count = present_now
 
+    left_count = sum(1 for st in status_map.values() if st == "plecat")
+
     data_curenta = now.strftime("%d %b %Y")  # ex: 23 Sep 2025
 
     return jsonify({
@@ -400,6 +402,7 @@ def api_monitor_status():
         "data_curenta": data_curenta,
         "mode": mode,
         "sleep_until": sleep_until,
+        "left_count": left_count
     })
 
 

@@ -16,7 +16,6 @@
         <div class="clock" aria-live="polite">{{ ora_curenta }}</div>
 
 
-
         <div class="class-pill">Acum la religie: <strong>Clasa {{ class_id }}</strong></div>
         <div class="date" style="opacity:.75;font-size:1.2rem;margin-top:.1rem">—</div>
     </header>
@@ -42,10 +41,10 @@
                 {% endfor %}
             </div>
             <div class="counter" aria-live="polite">
-                Prezenți: <span class="pill">{{ present_count }} / {{ total }}</span>
+                Prezenți: <span class="pill" id="present-pill">0 / 0</span>
             </div>
             <div class="counter" aria-live="polite">
-                Plecați: <span class="pill">{{ left_count }} / {{ total }}</span>
+                Plecați: <span class="pill" id="left-pill">0 / 0</span>
             </div>
 
         </section>
@@ -72,8 +71,10 @@
       const sessionId = {{ session_id|int }};
       const clockEl = document.querySelector('.clock');
       const subEl = document.querySelector('.sub');
-      const counterEl = document.querySelector('.counter .pill');
+
       const dateEl = document.querySelector('.date');
+      const presentPill = document.getElementById('present-pill');
+      const leftPill    = document.getElementById('left-pill');
 
       async function tick(){
         try{
@@ -82,7 +83,8 @@
           const data = await r.json();
           if(clockEl) clockEl.textContent = data.ora_curenta || '--:--';
           if(subEl) subEl.textContent = `Fereastră check‑in: ${data.window_label}. Bife verzi = prezenți.`;
-          if(counterEl) counterEl.textContent = `${data.present_count} / ${data.total}`;
+          if (presentPill) presentPill.textContent = `${data.present_count} / ${data.total}`;
+          if (leftPill)    leftPill.textContent    = `${data.left_count} / ${data.present_count}`;
           if (dateEl) dateEl.textContent = data.data_curenta || '';
         }catch(e){ /* ignorăm erorile intermitente */ }
         setTimeout(tick, 3000);
@@ -92,68 +94,68 @@
 </script>
 
 <script>
-(function(){
-  const params    = new URLSearchParams(location.search);
-  const sessionId = Number(params.get('session_id'));
-  if (!sessionId) { console.warn('Lipsește ?session_id='); return; }
+    (function(){
+      const params    = new URLSearchParams(location.search);
+      const sessionId = Number(params.get('session_id'));
+      if (!sessionId) { console.warn('Lipsește ?session_id='); return; }
 
-  const clockEl   = document.querySelector('.clock');
-  const dateEl    = document.querySelector('.date');
-  const counterEl = document.querySelector('.counter .pill');
-  const qrImg     = document.getElementById('qr-img');
-  const qrTitleEl = document.getElementById('qr-title');
-  const qrDebugEl = document.getElementById('qr-debug');
-  const qrScanTextEl = document.getElementById('qr-scan-text');
+      const clockEl   = document.querySelector('.clock');
+      const dateEl    = document.querySelector('.date');
+      const counterEl = document.querySelector('.counter .pill');
+      const qrImg     = document.getElementById('qr-img');
+      const qrTitleEl = document.getElementById('qr-title');
+      const qrDebugEl = document.getElementById('qr-debug');
+      const qrScanTextEl = document.getElementById('qr-scan-text');
 
-  let lastToken = null;
+      let lastToken = null;
 
-  async function tick(){
-    try{
-      const r = await fetch(`/api/monitor_status?session_id=${sessionId}`, {cache:'no-store'});
-      if(!r.ok){ console.log('API status', r.status); setTimeout(tick, 3000); return; }
-      const data = await r.json();
-      console.log('API:', {mode: data.mode, hasToken: !!data.qr_token});
+      async function tick(){
+        try{
+          const r = await fetch(`/api/monitor_status?session_id=${sessionId}`, {cache:'no-store'});
+          if(!r.ok){ console.log('API status', r.status); setTimeout(tick, 3000); return; }
+          const data = await r.json();
+          console.log('API:', {mode: data.mode, hasToken: !!data.qr_token});
 
-      if (clockEl)   clockEl.textContent = data.ora_curenta || '--:--';
-      if (dateEl)    dateEl.textContent  = data.data_curenta || '';
-      if (counterEl) counterEl.textContent = `${data.present_count} / ${data.total}`;
+          if (clockEl)   clockEl.textContent = data.ora_curenta || '--:--';
+          if (dateEl)    dateEl.textContent  = data.data_curenta || '';
+          if (counterEl) counterEl.textContent = `${data.present_count} / ${data.total}`;
 
-      if (qrTitleEl){
-        qrTitleEl.textContent =
-          data.mode === 'end'    ? 'Cod de final de oră' :
-          data.mode === 'active' ? 'Cod de început de oră' :
-          'Ora este în desfășurare';
-      }
+          if (qrTitleEl){
+            qrTitleEl.textContent =
+              data.mode === 'end'    ? 'Cod de final de oră' :
+              data.mode === 'active' ? 'Cod de început de oră' :
+              'Ora este în desfășurare';
+          }
 
-       if (qrScanTextEl){
-        qrScanTextEl.textContent =
-          data.mode === 'end'    ? 'Scanează pentru a-ți confirma plecarea' :
-          data.mode === 'active' ? 'Scanează pentru a-ți confirma prezența' :
-          '-';
-      }
+           if (qrScanTextEl){
+            qrScanTextEl.textContent =
+              data.mode === 'end'    ? 'Scanează pentru a-ți confirma plecarea' :
+              data.mode === 'active' ? 'Scanează pentru a-ți confirma prezența' :
+              '-';
+          }
 
-      // setează/ascunde QR
-      if (data.qr_token){
-        const v = encodeURIComponent(data.ora_curenta || Date.now());
-        const src = `/qr.png?token=${data.qr_token}&v=${v}`;
-        if (qrImg){
-          qrImg.src = src;
-          qrImg.style.visibility = 'visible';
+          // setează/ascunde QR
+          if (data.qr_token){
+            const v = encodeURIComponent(data.ora_curenta || Date.now());
+            const src = `/qr.png?token=${data.qr_token}&v=${v}`;
+            if (qrImg){
+              qrImg.src = src;
+              qrImg.style.visibility = 'visible';
+            }
+            if (qrDebugEl) qrDebugEl.textContent = `${location.origin}/elev?token=${data.qr_token}`;
+            lastToken = data.qr_token;
+            console.log('SET QR IMG:', src);
+          } else {
+            if (qrImg) qrImg.style.visibility = 'hidden';
+            if (qrDebugEl) qrDebugEl.textContent = '';
+          }
+        } catch(e){
+          console.error('tick error', e);
         }
-        if (qrDebugEl) qrDebugEl.textContent = `${location.origin}/elev?token=${data.qr_token}`;
-        lastToken = data.qr_token;
-        console.log('SET QR IMG:', src);
-      } else {
-        if (qrImg) qrImg.style.visibility = 'hidden';
-        if (qrDebugEl) qrDebugEl.textContent = '';
+        setTimeout(tick, 3000);
       }
-    } catch(e){
-      console.error('tick error', e);
-    }
-    setTimeout(tick, 3000);
-  }
-  tick();
-})();
+      tick();
+    })();
 </script>
 
 
