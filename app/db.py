@@ -109,6 +109,17 @@ def init_db() -> None:
     except sqlite3.OperationalError:
         pass
 
+    # --- freeze snapshot columns on session (idempotent) ---
+    try:
+        cur.execute("ALTER TABLE session ADD COLUMN present_frozen INTEGER")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cur.execute("ALTER TABLE session ADD COLUMN present_frozen_at TEXT")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+
     def _ensure_attendance_allows_plecat(conn):
         cur = conn.cursor()
         row = cur.execute(

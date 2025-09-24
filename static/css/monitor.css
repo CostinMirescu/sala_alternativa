@@ -21,7 +21,7 @@
     /* Header */
     header{
       display:grid; grid-template-columns: 1fr auto; align-items:center;
-      gap:2rem; padding:1.2rem 2rem; background: rgba(17,24,39,.6); backdrop-filter: blur(6px);
+      gap:0.5rem; padding:1.2rem 2rem; background: rgba(17,24,39,.6); backdrop-filter: blur(6px);
       border-bottom: 1px solid rgba(148,163,184,.12);
     }
     .clock{font-size: clamp(2rem, 6vw, 5rem); font-weight:800; letter-spacing: .02em;}

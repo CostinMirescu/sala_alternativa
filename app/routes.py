@@ -330,21 +330,63 @@ def api_monitor_status():
     status_map = {row[0]: row[1] for row in cur.fetchall()}
     conn.close()
 
-    present_count = sum(1 for h in authorized if status_map.get(h) in ("prezent", "întârziat"))
-    total = len(authorized)
+
+
+    before_end_5m = ends_at - timedelta(minutes=5)
 
     if delta < 0:
+        mode = "pre"
         window_label = "nu a început"
     elif delta < 5*60:
+        mode = "active"
         window_label = "verde (0–5 min)"
     elif delta < 10*60:
+        mode = "active"
         window_label = "galben (5–10 min)"
+    elif now < before_end_5m:
+        mode = "sleep"
+        window_label = "ora"
     else:
+        mode = "end"
         window_label = "expirat (>10 min)"
 
+    sleep_until = before_end_5m.strftime("%Y-%m-%dT%H:%M:%S%z")
     # token pentru faza curentă
-    s = get_qr_serializer(current_app)
-    qr_token = s.dumps({"session_id": session_id, "phase": phase})
+    qr_token = None
+    if mode in ("active", "end"):
+        s = get_qr_serializer(current_app)
+        qr_token = s.dumps({"session_id": session_id, "phase": ("start" if mode=="active" else "end")})
+
+    # prezent acum (doar pentru calcul intern)
+    present_now = sum(1 for h in authorized if status_map.get(h) in ("prezent", "întârziat"))
+    total = len(authorized)
+
+    # citește snapshot-ul (dacă există)
+    cur2 = get_connection().cursor()
+    cur2.execute("SELECT present_frozen, present_frozen_at FROM session WHERE id=?", (session_id,))
+    snap = cur2.fetchone()
+    present_frozen = snap["present_frozen"] if snap else None
+    present_frozen_at = snap["present_frozen_at"] if snap else None
+
+    # dacă am depășit +10 min și nu avem snapshot, îl setăm ACUM (o singură dată)
+    delta = int((now - starts_at).total_seconds())
+    if delta >= 10 * 60 and present_frozen is None:
+        cur2.execute(
+            "UPDATE session SET present_frozen=?, present_frozen_at=? WHERE id=?",
+            (present_now, now.strftime("%Y-%m-%dT%H:%M:%S%z"), session_id),
+        )
+        cur2.connection.commit()
+        present_frozen = present_now
+        present_frozen_at = now.strftime("%Y-%m-%dT%H:%M:%S%z")
+    cur2.connection.close()
+
+    # ce raportăm UI-ului?
+    if delta >= 10 * 60 and present_frozen is not None:
+        present_count = present_frozen  # ÎNGHEȚAT
+    else:
+        present_count = present_now
+
+    data_curenta = now.strftime("%d %b %Y")  # ex: 23 Sep 2025
 
     return jsonify({
         "class_id": class_id,
@@ -355,6 +397,9 @@ def api_monitor_status():
         "total": total,
         "phase": phase,
         "qr_token": qr_token,          # <— IMPORTANT
+        "data_curenta": data_curenta,
+        "mode": mode,
+        "sleep_until": sleep_until,
     })
 
 
