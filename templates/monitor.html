@@ -67,95 +67,107 @@
 </div>
 
 <script>
-    (function(){
-      const sessionId = {{ session_id|int }};
-      const clockEl = document.querySelector('.clock');
-      const subEl = document.querySelector('.sub');
+(function () {
+  // 1) Sursă unică de adevăr pentru sessionId (din URL)
+  const sessionId = Number(new URLSearchParams(location.search).get('session_id'));
+  if (!sessionId) { console.warn('Lipsește ?session_id='); return; }
 
-      const dateEl = document.querySelector('.date');
-      const presentPill = document.getElementById('present-pill');
-      const leftPill    = document.getElementById('left-pill');
+  // 2) Referințe UI (o singură dată)
+  const clockEl      = document.querySelector('.clock');
+  const dateEl       = document.querySelector('.date');
+  const subEl        = document.querySelector('.sub');
+  const presentPill  = document.getElementById('present-pill');
+  const leftPill     = document.getElementById('left-pill');
+  const qrImg        = document.getElementById('qr-img');
+  const qrTitleEl    = document.getElementById('qr-title');
+  const qrDebugEl    = document.getElementById('qr-debug');
+  const qrScanTextEl = document.getElementById('qr-scan-text');
 
-      async function tick(){
-        try{
-          const r = await fetch(`/api/monitor_status?session_id=${sessionId}`, {cache:'no-store'});
-          if(!r.ok) return;
-          const data = await r.json();
-          if(clockEl) clockEl.textContent = data.ora_curenta || '--:--';
-          if(subEl) subEl.textContent = `Fereastră check‑in: ${data.window_label}. Bife verzi = prezenți.`;
-          if (presentPill) presentPill.textContent = `${data.present_count} / ${data.total}`;
-          if (leftPill)    leftPill.textContent    = `${data.left_count} / ${data.present_count}`;
-          if (dateEl) dateEl.textContent = data.data_curenta || '';
-        }catch(e){ /* ignorăm erorile intermitente */ }
-        setTimeout(tick, 3000);
-      }
-      tick();
-    })();
-</script>
+  // 3) Stare anterioară pentru diff (ca să nu “clipească”)
+  const prev = {
+    ora_curenta: null,
+    data_curenta: null,
+    present_count: null,
+    total: null,
+    left_count: null,
+    mode: null,
+    qr_token: null,
+    window_label: null,
+  };
 
-<script>
-    (function(){
-      const params    = new URLSearchParams(location.search);
-      const sessionId = Number(params.get('session_id'));
-      if (!sessionId) { console.warn('Lipsește ?session_id='); return; }
+  // helper de update sigur (doar când s-a schimbat)
+  function setText(el, text, key) {
+    if (!el) return;
+    if (prev[key] !== text) {
+      prev[key] = text;
+      // mic batch cu rAF: update în același frame
+      requestAnimationFrame(() => { el.textContent = text; });
+    }
+  }
 
-      const clockEl   = document.querySelector('.clock');
-      const dateEl    = document.querySelector('.date');
-      const counterEl = document.querySelector('.counter .pill');
-      const qrImg     = document.getElementById('qr-img');
-      const qrTitleEl = document.getElementById('qr-title');
-      const qrDebugEl = document.getElementById('qr-debug');
-      const qrScanTextEl = document.getElementById('qr-scan-text');
+  async function tick() {
+    try {
+      const r = await fetch(`/api/monitor_status?session_id=${sessionId}`, { cache: 'no-store' });
+      if (!r.ok) { setTimeout(tick, 3000); return; }
+      const data = await r.json();
 
-      let lastToken = null;
+      // 4) Actualizări “dif”-uite (numai dacă s-au schimbat)
+      setText(clockEl, data.ora_curenta || '--:--', 'ora_curenta');
+      setText(dateEl,  data.data_curenta || '',       'data_curenta');
 
-      async function tick(){
-        try{
-          const r = await fetch(`/api/monitor_status?session_id=${sessionId}`, {cache:'no-store'});
-          if(!r.ok){ console.log('API status', r.status); setTimeout(tick, 3000); return; }
-          const data = await r.json();
-          console.log('API:', {mode: data.mode, hasToken: !!data.qr_token});
+      // subEl: mesaj fereastră check-in (sau alt text)
+      const subText = data.window_label ? `Fereastră check-in: ${data.window_label}. Bife verzi = prezenți.` : '';
+      setText(subEl, subText, 'window_label');
 
-          if (clockEl)   clockEl.textContent = data.ora_curenta || '--:--';
-          if (dateEl)    dateEl.textContent  = data.data_curenta || '';
-          if (counterEl) counterEl.textContent = `${data.present_count} / ${data.total}`;
+      // contoare
+      setText(presentPill, `${data.present_count} / ${data.total}`, 'present_count_total');
+      setText(leftPill,    `${(data.left_count ?? 0)} / ${data.present_count}`, 'left_over_present');
 
-          if (qrTitleEl){
-            qrTitleEl.textContent =
-              data.mode === 'end'    ? 'Cod de final de oră' :
-              data.mode === 'active' ? 'Cod de început de oră' :
-              'Ora este în desfășurare';
-          }
+      // titluri + text QR în funcție de mod
+      const titleText =
+        data.mode === 'end'    ? 'Cod de final de oră' :
+        data.mode === 'active' ? 'Cod de început de oră' :
+                                  'Ora este în desfășurare';
+      setText(qrTitleEl, titleText, 'mode_title');
 
-           if (qrScanTextEl){
-            qrScanTextEl.textContent =
-              data.mode === 'end'    ? 'Scanează pentru a-ți confirma plecarea' :
-              data.mode === 'active' ? 'Scanează pentru a-ți confirma prezența' :
-              '-';
-          }
+      const scanText =
+        data.mode === 'end'    ? 'Scanează pentru a-ți confirma plecarea' :
+        data.mode === 'active' ? 'Scanează pentru a-ți confirma prezența' :
+                                  '-';
+      setText(qrScanTextEl, scanText, 'scan_text');
 
-          // setează/ascunde QR
-          if (data.qr_token){
-            const v = encodeURIComponent(data.ora_curenta || Date.now());
-            const src = `/qr.png?token=${data.qr_token}&v=${v}`;
-            if (qrImg){
+      // 5) QR: schimbăm imaginea doar când tokenul s-a schimbat
+      if (data.qr_token) {
+        if (prev.qr_token !== data.qr_token) {
+          prev.qr_token = data.qr_token;
+          const v = encodeURIComponent(data.ora_curenta || Date.now());
+          const src = `/qr.png?token=${data.qr_token}&v=${v}`;
+          requestAnimationFrame(() => {
+            if (qrImg) {
               qrImg.src = src;
               qrImg.style.visibility = 'visible';
             }
             if (qrDebugEl) qrDebugEl.textContent = `${location.origin}/elev?token=${data.qr_token}`;
-            lastToken = data.qr_token;
-            console.log('SET QR IMG:', src);
-          } else {
-            if (qrImg) qrImg.style.visibility = 'hidden';
-            if (qrDebugEl) qrDebugEl.textContent = '';
-          }
-        } catch(e){
-          console.error('tick error', e);
+          });
         }
-        setTimeout(tick, 3000);
+      } else {
+        // fără token (ex. sleep) — ascundem imaginea, golim debug (o singură dată)
+        if (prev.qr_token !== null) {
+          prev.qr_token = null;
+          requestAnimationFrame(() => {
+            if (qrImg)     qrImg.style.visibility = 'hidden';
+            if (qrDebugEl) qrDebugEl.textContent = '';
+          });
+        }
       }
-      tick();
-    })();
+    } catch (e) {
+      console.error('tick error', e);
+    }
+    setTimeout(tick, 3000);
+  }
+
+  tick();
+})();
 </script>
 
 
