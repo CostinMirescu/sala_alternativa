@@ -10,6 +10,58 @@ from flask import send_file, current_app
 from io import BytesIO
 import qrcode
 from itsdangerous import BadSignature, SignatureExpired
+from datetime import datetime, timedelta
+
+def _windows(now, starts_at, ends_at, cfg):
+    """
+    Returnează dict cu ferestrele (active/sleep/end) și 'mode' curent.
+    Reguli:
+      - check-in: [T - open_before, T + close_after]
+      - sleep   : (T + close_after, ends_at - checkout_open_before_end)
+      - end     : [ends_at - checkout_open_before_end, ends_at + grace_after_end]
+    """
+    open_before   = timedelta(minutes=cfg["CHECKIN_OPEN_MIN_BEFORE"])
+    close_after   = timedelta(minutes=cfg["CHECKIN_CLOSE_MIN_AFTER"])
+    open_end      = timedelta(minutes=cfg["CHECKOUT_OPEN_MIN_BEFORE_END"])
+    grace_after   = timedelta(minutes=cfg["CHECKOUT_GRACE_MIN_AFTER_END"])
+
+    w_checkin_start = starts_at - open_before
+    w_checkin_end   = starts_at + close_after
+    w_end_start     = ends_at - open_end
+    w_end_end       = ends_at + grace_after
+
+    if now < w_checkin_start:
+        mode = "pre"
+    elif w_checkin_start <= now <= w_checkin_end:
+        mode = "active"
+    elif w_checkin_end < now < w_end_start:
+        mode = "sleep"
+    elif w_end_start <= now <= w_end_end:
+        mode = "end"
+    else:
+        mode = "post"
+
+    return {
+        "mode": mode,
+        "w_checkin_start": w_checkin_start,
+        "w_checkin_end":   w_checkin_end,
+        "w_end_start":     w_end_start,
+        "w_end_end":       w_end_end,
+    }
+
+def _window_label(now, starts_at, cfg):
+    """Pentru textul tău existent 'Fereastră check-in: ...' """
+    open_before = timedelta(minutes=cfg["CHECKIN_OPEN_MIN_BEFORE"])
+    close_after = timedelta(minutes=cfg["CHECKIN_CLOSE_MIN_AFTER"])
+    if now < starts_at - open_before:
+        return "nu a început"
+    delta = int((now - starts_at).total_seconds())
+    if delta < 5*60:
+        return "verde (0–5 min)"
+    if delta < 10*60:
+        return "galben (5–10 min)"
+    return "expirat (>10 min)"
+
 
 
 bp = Blueprint("main", __name__)
@@ -323,7 +375,9 @@ def api_monitor_status():
     class_id = sess["class_id"]
     starts_at = _parse_iso(sess["starts_at"])  # aware
     ends_at = _parse_iso(sess["ends_at"])
-    now = datetime.now(tz=current_app.config["TZ"])  # TZ corect
+    now = datetime.now(tz=current_app.config["TZ"])
+    wins = _windows(now, starts_at, ends_at, current_app.config)
+    mode = wins["mode"]
     delta = int((now - starts_at).total_seconds())
     phase = "start" if now < (ends_at - timedelta(minutes=5)) else "end"
 
@@ -357,11 +411,14 @@ def api_monitor_status():
         window_label = "expirat (>10 min)"
 
     sleep_until = before_end_5m.strftime("%Y-%m-%dT%H:%M:%S%z")
-    # token pentru faza curentă
+
+    # Token doar în active/end
     qr_token = None
     if mode in ("active", "end"):
+        from . import get_qr_serializer
         s = get_qr_serializer(current_app)
-        qr_token = s.dumps({"session_id": session_id, "phase": ("start" if mode=="active" else "end")})
+        phase = "start" if mode == "active" else "end"
+        qr_token = s.dumps({"session_id": session_id, "phase": phase})
 
     # prezent acum (doar pentru calcul intern)
     present_now = sum(1 for h in authorized if status_map.get(h) in ("prezent", "întârziat"))
@@ -395,6 +452,8 @@ def api_monitor_status():
     left_count = sum(1 for st in status_map.values() if st == "plecat")
 
     data_curenta = now.strftime("%d %b %Y")  # ex: 23 Sep 2025
+
+    window_label = _window_label(now, starts_at, current_app.config)
 
     return jsonify({
         "class_id": class_id,

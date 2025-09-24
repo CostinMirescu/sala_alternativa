@@ -20,6 +20,12 @@ def create_app():
     app.config["QR_SALT"] = os.getenv("QR_SALT", "qr-signing-v1")
     app.config["QR_MAX_AGE"] = int(os.getenv("QR_MAX_AGE", "900"))  # secunde
 
+    app.config["CHECKIN_OPEN_MIN_BEFORE"] = int(os.getenv("CHECKIN_OPEN_MIN_BEFORE", "5"))
+    app.config["CHECKIN_CLOSE_MIN_AFTER"] = int(os.getenv("CHECKIN_CLOSE_MIN_AFTER", "10"))
+    app.config["CHECKOUT_OPEN_MIN_BEFORE_END"] = int(os.getenv("CHECKOUT_OPEN_MIN_BEFORE_END", "5"))
+    app.config["CHECKOUT_GRACE_MIN_AFTER_END"] = int(os.getenv("CHECKOUT_GRACE_MIN_AFTER_END", "5"))
+    app.config["SESSION_LENGTH_MIN"] = int(os.getenv("SESSION_LENGTH_MIN", "50"))
+
     from .routes import bp as main_bp
     app.register_blueprint(main_bp)
 
@@ -68,7 +74,11 @@ def create_app():
         from .db import seed_session as _seed
         tz = app.config["TZ"]
         start = datetime.now(tz) - timedelta(minutes=minutes_ago)
+
+        # Ignorăm param. duration_min și folosim din config (sursa unică)
+        duration_min = app.config["SESSION_LENGTH_MIN"]
         end = start + timedelta(minutes=duration_min)
+
         iso = "%Y-%m-%dT%H:%M:%S%z"
         s = _seed(class_id, start.strftime(iso), end.strftime(iso))
         click.echo(f"Session created id={s.id} for class {class_id} ({s.starts_at} → {s.ends_at})")
