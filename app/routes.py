@@ -377,9 +377,11 @@ def api_monitor_status():
     ends_at = _parse_iso(sess["ends_at"])
     now = datetime.now(tz=current_app.config["TZ"])
     wins = _windows(now, starts_at, ends_at, current_app.config)
-    mode = wins["mode"]
+    mode_internal = wins["mode"]
     delta = int((now - starts_at).total_seconds())
     phase = "start" if now < (ends_at - timedelta(minutes=5)) else "end"
+
+
 
     # coduri autorizate pentru clasă
     cur.execute("SELECT code4_hash FROM authorized_code WHERE class_id=? ORDER BY id", (class_id,))
@@ -412,6 +414,16 @@ def api_monitor_status():
 
     sleep_until = before_end_5m.strftime("%Y-%m-%dT%H:%M:%S%z")
 
+
+
+    # Publicăm "off" pentru pre/post (ecran unificat)
+    if mode_internal in ("pre", "post"):
+        mode = "off"
+        reason = mode_internal
+    else:
+        mode = mode_internal
+        reason = None
+
     # Token doar în active/end
     qr_token = None
     if mode in ("active", "end"):
@@ -419,6 +431,15 @@ def api_monitor_status():
         s = get_qr_serializer(current_app)
         phase = "start" if mode == "active" else "end"
         qr_token = s.dumps({"session_id": session_id, "phase": phase})
+
+
+    # Dacă suntem "pre", anunțăm când se deschide fereastra (T-5)
+    next_window_at = None
+    next_window_hhmm = None
+    if mode_internal == "pre":
+        nxt = wins["w_checkin_start"]  # datetime aware
+        next_window_at = nxt.strftime("%Y-%m-%dT%H:%M:%S%z")
+        next_window_hhmm = nxt.strftime("%H:%M")
 
     # prezent acum (doar pentru calcul intern)
     present_now = sum(1 for h in authorized if status_map.get(h) in ("prezent", "întârziat"))
@@ -466,8 +487,11 @@ def api_monitor_status():
         "qr_token": qr_token,          # <— IMPORTANT
         "data_curenta": data_curenta,
         "mode": mode,
+        "reason": reason,
         "sleep_until": sleep_until,
-        "left_count": left_count
+        "left_count": left_count,
+        "next_window_at": next_window_at,  # ISO sau None
+        "next_window_hhmm": next_window_hhmm,  # "HH:MM" sau None
     })
 
 
