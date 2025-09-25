@@ -390,9 +390,15 @@ def api_monitor_status():
     # statusuri curente pentru sesiune
     cur.execute("SELECT code4_hash, status FROM attendance WHERE session_id=?", (session_id,))
     status_map = {row[0]: row[1] for row in cur.fetchall()}
+
+    cur.execute("SELECT code4_hash, code4_plain FROM authorized_code WHERE class_id=? ORDER BY id", (class_id,))
+    rows = cur.fetchall()
+    codes = []
+    for h, code4 in rows:
+        st = status_map.get(h, "neconfirmat")
+        codes.append({"code4": code4, "status": st})
+
     conn.close()
-
-
 
     before_end_5m = ends_at - timedelta(minutes=5)
 
@@ -492,6 +498,7 @@ def api_monitor_status():
         "left_count": left_count,
         "next_window_at": next_window_at,  # ISO sau None
         "next_window_hhmm": next_window_hhmm,  # "HH:MM" sau None
+        "codes": codes
     })
 
 

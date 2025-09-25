@@ -134,6 +134,38 @@
       const prev = { ora_curenta:null, data_curenta:null, present_count:null,
         total:null, left_count:null, mode:null, qr_token:null, window_label:null };
 
+        // Mapăm fiecare rând după cod (textul din <b>)
+const codeRowMap = new Map();
+document.querySelectorAll('.codes .code').forEach(row => {
+  const b = row.querySelector('b');
+  const code = b ? (b.textContent || '').trim() : '';
+  if (code) codeRowMap.set(code, row);
+});
+
+function setBadge(row, status){
+  const badge = row.querySelector('.badge');
+  if (!badge) return;
+  // clase țintite
+  const cls =
+    status === 'prezent'    ? 'badge present' :
+    status === 'întârziat'  ? 'badge late' :
+    status === 'plecat'     ? 'badge left' :
+                               'badge missing';
+  if (badge.className !== cls) badge.className = cls;
+
+  const txt =
+    status === 'prezent'    ? 'prezent' :
+    status === 'întârziat'  ? 'întârziat' :
+    status === 'plecat'     ? 'plecat' : 'neconfirmat';
+  // doar dacă s-a schimbat textul
+  if ((badge.textContent || '').trim() !== txt) {
+    // păstrăm bulina dacă există
+    const hasDot = !!badge.querySelector('.dot');
+    badge.innerHTML = hasDot ? `<span class="dot"></span> ${txt}` : txt;
+  }
+}
+
+
       function setText(el, text, key) {
         if (!el) return;
         if (prev[key] !== text) {
@@ -206,6 +238,13 @@
           setText(qrTitleEl, titleText, 'mode_title');
 
           document.body.setAttribute('data-mode', data.mode);
+
+          if (Array.isArray(data.codes)) {
+  for (const item of data.codes) {
+    const row = codeRowMap.get(item.code4);
+    if (row) setBadge(row, item.status);
+  }
+}
 
           const scanText =
             data.mode === 'end'    ? 'Scanează pentru a-ți confirma plecarea' :
