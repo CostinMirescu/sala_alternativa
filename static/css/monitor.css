@@ -81,7 +81,7 @@
     .qr-box svg{width:100%; height:100%; display:block}
 
     .counter{
-      margin-top: .5rem; display:flex; align-items:center; gap:.75rem; font-size: clamp(1.3rem, 4.5vw, 2rem);
+      margin-top: 1.5rem; display:flex; align-items:center; gap:.75rem; font-size: clamp(1.3rem, 4.5vw, 2rem);
       font-weight:800; letter-spacing:.02em
     }
     .counter .pill{background: rgba(34,211,238,.12); color:#67e8f9; border:1px solid rgba(34,211,238,.35);
@@ -119,7 +119,19 @@ body[data-mode="off"]  #class-pill { display: none !important; }
     min-width: 350px;
 }
 
-.legend { margin-top:1.75rem; display:flex; flex-wrap:wrap; gap:.5rem; color:var(--muted); }
+#presence-panel{
+  display:flex;
+  flex-direction:column;
+  min-width: 320px;            /* o ai deja pentru placeholder-ul QR */
+  min-height: 100%;            /* dacă secțiunea e într-un card cu height auto, poți scoate */
+}
+
+.legend{
+  margin-top:auto;             /* împinge legenda la bază */
+  display:flex; flex-wrap:wrap; gap:.5rem;
+  color: var(--muted);
+}
+
 
 .fs-btn{
   padding:.5rem .75rem; border-radius:999px; font-weight:700; letter-spacing:.01em;

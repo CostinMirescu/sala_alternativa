@@ -51,17 +51,18 @@
                 <div class="counter" aria-live="polite">
                     Prezenți: <span class="pill" id="present-pill">0 / 0</span>
                 </div>
-                <div class="counter" aria-live="polite">
+                <div class="counter" aria-live="polite" id="left-wrap">
                     Plecați: <span class="pill" id="left-pill">0 / 0</span>
                 </div>
-            </div>
 
-            <div class="legend" aria-label="Legendă statusuri">
-                Legendă
-                <span class="badge present"><span class="dot"></span> prezent</span>
-                <span class="badge late"><span class="dot"></span> întârziat</span>
-                <span class="badge left"><span class="dot"></span> plecat</span>
-                <span class="badge missing">neconfirmat</span>
+
+                <div class="legend" aria-label="Legendă statusuri">
+                    Legendă
+                    <span class="badge present"><span class="dot"></span> prezent</span>
+                    <span class="badge late"><span class="dot"></span> întârziat</span>
+                    <span class="badge left"><span class="dot"></span> plecat</span>
+                    <span class="badge missing">neconfirmat</span>
+                </div>
             </div>
 
         </section>
@@ -91,28 +92,28 @@
 </div>
 
 <script>
-(function(){
-  const btn = document.getElementById('fs-btn');
-  if(!btn) return;
+    (function(){
+      const btn = document.getElementById('fs-btn');
+      if(!btn) return;
 
-  function updateLabel(){
-    const on = !!document.fullscreenElement;
-    btn.textContent = on ? '↙ Ieșire Fullscreen' : '⛶ Fullscreen';
-    btn.setAttribute('aria-label', on ? 'Ieșire din ecran complet' : 'Pornește modul ecran complet');
-  }
-  btn.addEventListener('click', async () => {
-    try{
-      if(!document.fullscreenElement){
-        await document.documentElement.requestFullscreen();
-      }else{
-        await document.exitFullscreen();
+      function updateLabel(){
+        const on = !!document.fullscreenElement;
+        btn.textContent = on ? '↙ Ieșire Fullscreen' : '⛶ Fullscreen';
+        btn.setAttribute('aria-label', on ? 'Ieșire din ecran complet' : 'Pornește modul ecran complet');
       }
+      btn.addEventListener('click', async () => {
+        try{
+          if(!document.fullscreenElement){
+            await document.documentElement.requestFullscreen();
+          }else{
+            await document.exitFullscreen();
+          }
+          updateLabel();
+        }catch(e){ console.warn('fullscreen error', e); }
+      });
+      document.addEventListener('fullscreenchange', updateLabel);
       updateLabel();
-    }catch(e){ console.warn('fullscreen error', e); }
-  });
-  document.addEventListener('fullscreenchange', updateLabel);
-  updateLabel();
-})();
+    })();
 </script>
 
 <script>
@@ -236,6 +237,12 @@ function setBadge(row, status){
             data.mode === 'sleep'  ? 'Oră în desfășurare' :
                                       'În afara orelor';
           setText(qrTitleEl, titleText, 'mode_title');
+
+           // afișare doar în faza end
+const leftWrap = document.getElementById('left-wrap');
+if (leftWrap) {
+  leftWrap.style.display = (data.mode === 'end') ? 'flex' : 'none';
+}
 
           document.body.setAttribute('data-mode', data.mode);
 
