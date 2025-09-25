@@ -8,7 +8,8 @@
       --warn: #f59e0b;        /* amber-500 */
     }
 
-    html,body{height:100%;}
+
+
     body{
       margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
       background: radial-gradient(1200px 800px at 10% 10%, #0b1226 0%, var(--bg) 50%),
@@ -73,7 +74,7 @@
 
     /* Right side: QR & Counter */
     .qr-panel{display:grid; grid-template-rows: auto 1fr auto; row-gap:1rem; justify-items:center; text-align:center}
-    .qr-box{aspect-ratio:1/1; width:min(52vmin, 520px); border-radius:16px; overflow:hidden; border:1px solid rgba(148,163,184,.18);
+    .qr-box{aspect-ratio:1/1; width:min(32vmin, 320px); border-radius:16px; overflow:hidden; border:1px solid rgba(148,163,184,.18);
             background:#fff; display:grid; place-items:center;}
     .qr-caption{color:var(--muted)}
 
