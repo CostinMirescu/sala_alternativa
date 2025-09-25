@@ -8,64 +8,62 @@
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ config['ASSET_VER'] }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/monitor.css') }}?v={{ config['ASSET_VER'] }}">
-<script>
-(function(){
-  if (window.__timersHooked) return;
-  window.__timersHooked = true;
-  const ot = window.setTimeout, oi = window.setInterval;
-  window.setTimeout = function(fn, ms){
-    const stack = (new Error()).stack.split('\n')[2] || '';
-    console.log('[setTimeout]', ms, '←', stack.trim());
-    return ot.apply(this, arguments);
-  };
-  window.setInterval = function(fn, ms){
-    const stack = (new Error()).stack.split('\n')[2] || '';
-    console.log('[setInterval]', ms, '←', stack.trim());
-    return oi.apply(this, arguments);
-  };
-  console.log('[timers] hooks installed at load');
-})();
-</script>
+
 
 </head>
 <body>
 <div class="wrap">
     <header>
-        <div class="clock" aria-live="polite">{{ ora_curenta }}</div>
+        <div>
+            <div class="clock" aria-live="polite">{{ ora_curenta }}</div>
+            <div class="date" style="opacity:.75;font-size:1.2rem;margin-top:.1rem">{{ data_curenta }}</div>
+        </div>
 
+        <div class="class-pill">
+            <button id="fs-btn" class="fs-btn" type="button" aria-label="Pornește modul ecran complet">⛶ Fullscreen
+            </button>
+            <div id="class-pill"> Acum la Religie: <strong>Clasa {{ class_id }}</strong></div>
+        </div>
 
-        <div id="class-pill" class="class-pill">Acum la Religie: <strong>Clasa {{ class_id }}</strong></div>
-        <div class="date" style="opacity:.75;font-size:1.2rem;margin-top:.1rem">{{ data_curenta }}</div>
     </header>
 
     <main class="main">
-        <section  class="card" aria-labelledby="list-coduri" style="min-width:883px">
+        <section class="card" aria-labelledby="list-coduri" style="min-width:883px">
             <div id="presence-panel">
-            <h2 id="list-coduri">Elevi care nu participă la ora de Religie</h2>
-            <!--            <p class="sub">Fereastră check‑in: {{ window_label }}. Bife verzi = prezenți.</p>-->
-            <div class="codes" role="list">
-                {% for c in codes %}
-                <div class="code" role="listitem">
-                    <b>{{ c.code4 }}</b> <!-- mascăm; poți înlocui cu altă logică -->
-                    {% if c.status == 'prezent' %}
-                    <span class="badge present" title="prezent"><span class="dot"></span> prezent</span>
-                    {% elif c.status == 'întârziat' %}
-                    <span class="badge late" title="întârziat"><span class="dot"></span> întârziat</span>
-                    {% elif c.status == 'plecat' %}
-                    <span class="badge gone" title="plecat"><span class="dot"></span> plecat</span>
-                    {% else %}
-                    <span class="badge missing" title="neconfirmat">neconfirmat</span>
-                    {% endif %}
+                <h2 id="list-coduri">Elevi care nu participă la ora de Religie</h2>
+                <!--            <p class="sub">Fereastră check‑in: {{ window_label }}. Bife verzi = prezenți.</p>-->
+                <div class="codes" role="list">
+                    {% for c in codes %}
+                    <div class="code" role="listitem">
+                        <b>{{ c.code4 }}</b> <!-- mascăm; poți înlocui cu altă logică -->
+                        {% if c.status == 'prezent' %}
+                        <span class="badge present" title="prezent"><span class="dot"></span> prezent</span>
+                        {% elif c.status == 'întârziat' %}
+                        <span class="badge late" title="întârziat"><span class="dot"></span> întârziat</span>
+                        {% elif c.status == 'plecat' %}
+                        <span class="badge left" title="plecat"><span class="dot"></span> plecat</span>
+                        {% else %}
+                        <span class="badge missing" title="neconfirmat">neconfirmat</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
+                <div class="counter" aria-live="polite">
+                    Prezenți: <span class="pill" id="present-pill">0 / 0</span>
+                </div>
+                <div class="counter" aria-live="polite">
+                    Plecați: <span class="pill" id="left-pill">0 / 0</span>
+                </div>
             </div>
-            <div class="counter" aria-live="polite">
-                Prezenți: <span class="pill" id="present-pill">0 / 0</span>
+
+            <div class="legend" aria-label="Legendă statusuri">
+                Legendă
+                <span class="badge present"><span class="dot"></span> prezent</span>
+                <span class="badge late"><span class="dot"></span> întârziat</span>
+                <span class="badge left"><span class="dot"></span> plecat</span>
+                <span class="badge missing">neconfirmat</span>
             </div>
-            <div class="counter" aria-live="polite">
-                Plecați: <span class="pill" id="left-pill">0 / 0</span>
-            </div>
-        </div>
+
         </section>
 
         <aside class="card qr-panel" aria-labelledby="qr-title">
@@ -93,175 +91,165 @@
 </div>
 
 <script>
-/* Hook timere foarte devreme (înainte de orice alt script) */
 (function(){
-  if (window.__timersHooked) return;
-  window.__timersHooked = true;
+  const btn = document.getElementById('fs-btn');
+  if(!btn) return;
 
-  const ot = window.setTimeout, oi = window.setInterval;
-  window.setTimeout = function(fn, ms){
-    const stack = (new Error()).stack.split('\n')[2] || '';
-    console.log('[setTimeout]', ms, '←', stack.trim());
-    return ot.apply(this, arguments);
-  };
-  window.setInterval = function(fn, ms){
-    const stack = (new Error()).stack.split('\n')[2] || '';
-    console.log('[setInterval]', ms, '←', stack.trim());
-    return oi.apply(this, arguments);
-  };
-  console.log('[timers] hooks installed at load');
+  function updateLabel(){
+    const on = !!document.fullscreenElement;
+    btn.textContent = on ? '↙ Ieșire Fullscreen' : '⛶ Fullscreen';
+    btn.setAttribute('aria-label', on ? 'Ieșire din ecran complet' : 'Pornește modul ecran complet');
+  }
+  btn.addEventListener('click', async () => {
+    try{
+      if(!document.fullscreenElement){
+        await document.documentElement.requestFullscreen();
+      }else{
+        await document.exitFullscreen();
+      }
+      updateLabel();
+    }catch(e){ console.warn('fullscreen error', e); }
+  });
+  document.addEventListener('fullscreenchange', updateLabel);
+  updateLabel();
 })();
-
-(function(){
-  const L = console; // alias
-  const or = location.reload, oa = location.assign, op = location.replace;
-  location.reload  = function(){ L.trace('[who] location.reload');  return or.apply(this, arguments); };
-  location.assign  = function(u){ L.trace('[who] location.assign', u); return oa.apply(this, arguments); };
-  location.replace = function(u){ L.trace('[who] location.replace', u);return op.apply(this, arguments); };
-  const oh = history.pushState, orh = history.replaceState;
-  history.pushState    = function(){ L.trace('[who] history.pushState', arguments); return oh.apply(this, arguments); };
-  history.replaceState = function(){ L.trace('[who] history.replaceState', arguments); return orh.apply(this, arguments); };
-  L.log('[hook] location/history patched');
-})();
-
 </script>
-
 
 <script>
-(function () {
-  const sessionId = Number(new URLSearchParams(location.search).get('session_id'));
-  if (!sessionId) { console.warn('Lipsește ?session_id='); return; }
+    (function () {
+      const sessionId = Number(new URLSearchParams(location.search).get('session_id'));
+      if (!sessionId) { console.warn('Lipsește ?session_id='); return; }
 
-  const clockEl      = document.querySelector('.clock');
-  const dateEl       = document.querySelector('.date');
-  const subEl        = document.querySelector('.sub');
-  const presentPill  = document.getElementById('present-pill');
-  const leftPill     = document.getElementById('left-pill');
-  const qrImg        = document.getElementById('qr-img');
-  const qrTitleEl    = document.getElementById('qr-title');
-  const qrDebugEl    = document.getElementById('qr-debug');
-  const qrScanTextEl = document.getElementById('qr-scan-text');
-  const qrPhEl       = document.getElementById('qr-ph');
+      const clockEl      = document.querySelector('.clock');
+      const dateEl       = document.querySelector('.date');
+      const subEl        = document.querySelector('.sub');
+      const presentPill  = document.getElementById('present-pill');
+      const leftPill     = document.getElementById('left-pill');
+      const qrImg        = document.getElementById('qr-img');
+      const qrTitleEl    = document.getElementById('qr-title');
+      const qrDebugEl    = document.getElementById('qr-debug');
+      const qrScanTextEl = document.getElementById('qr-scan-text');
+      const qrPhEl       = document.getElementById('qr-ph');
 
-  const prev = { ora_curenta:null, data_curenta:null, present_count:null,
-    total:null, left_count:null, mode:null, qr_token:null, window_label:null };
+      const prev = { ora_curenta:null, data_curenta:null, present_count:null,
+        total:null, left_count:null, mode:null, qr_token:null, window_label:null };
 
-  function setText(el, text, key) {
-    if (!el) return;
-    if (prev[key] !== text) {
-      prev[key] = text;
-      requestAnimationFrame(() => { el.textContent = text; });
-    }
-  }
-
-  // —— Scheduler strict (un singur timer, fără overlap) ——
-  let timerId = null;
-  let inFlight = false;
-  const nowTS = () => new Date().toISOString().split('T')[1].slice(0,12);
-
-  function scheduleNextTick(mode, nextAtISO){
-    const FAST = 3000, SLOW = 60000;
-
-    // curăță orice timer vechi înainte să programezi unul nou
-    if (timerId) { clearTimeout(timerId); timerId = null; }
-
-    // dacă avem o oră exactă de trezire și suntem în off/sleep, programează fix acolo
-    if (nextAtISO && (mode === 'off' || mode === 'sleep')) {
-      const t = Date.parse(nextAtISO);
-      const delay = Math.max(0, t - Date.now() + 250); // buffer mic
-      console.log(`[${nowTS()}][sched] mode=${mode} wake in ${Math.round(delay/1000)}s`);
-      timerId = setTimeout(tick, delay);
-      return;
-    }
-
-    // altfel, interval după mod
-    const interval = (mode === 'active' || mode === 'end') ? FAST : SLOW;
-    console.log(`[${nowTS()}][sched] mode=${mode} interval ${interval/1000}s`);
-    timerId = setTimeout(tick, interval);
-  }
-
-  async function tick() {
-    if (inFlight) {
-      console.warn(`[${nowTS()}][tick] SKIP inFlight`); return;
-    }
-    inFlight = true;
-    const t0 = performance.now();
-
-    let nextMode = 'off';
-    let nextAt   = null;
-
-    try {
-      const r = await fetch(`/api/monitor_status?session_id=${sessionId}`, { cache: 'no-store' });
-      if (!r.ok) {
-        console.warn(`[${nowTS()}][tick] API status`, r.status); return;
-      }
-      const data = await r.json();
-      nextMode = data.mode;
-      nextAt   = data.next_window_at || null;
-
-      // — UI updates (dif) —
-      setText(clockEl, data.ora_curenta || '--:--', 'ora_curenta');
-      setText(dateEl,  data.data_curenta || '{{ data_curenta }}', 'data_curenta');
-
-      const subText = data.window_label
-        ? `Fereastră check-in: ${data.window_label}. Bife verzi = prezenți.` : '';
-      setText(subEl, subText, 'window_label');
-
-      setText(presentPill, `${data.present_count} / ${data.total}`, 'present_count_total');
-      setText(leftPill,    `${(data.left_count ?? 0)} / ${data.present_count}`, 'left_over_present');
-
-      const titleText =
-        data.mode === 'end'    ? 'Cod de final de oră' :
-        data.mode === 'active' ? 'Cod de început de oră' :
-                                  'În afara orelor';
-      setText(qrTitleEl, titleText, 'mode_title');
-
-      document.body.setAttribute('data-mode', data.mode);
-
-      const scanText =
-        data.mode === 'end'    ? 'Scanează pentru a-ți confirma plecarea' :
-        data.mode === 'active' ? 'Scanează pentru a-ți confirma prezența' :
-                                  'Nu există o sesiune activă.';
-      setText(qrScanTextEl, scanText, 'scan_text');
-
-      // Afișăm QR doar în active/end (nu riscăm token rezidual)
-      const canShowQR = (data.mode === 'active' || data.mode === 'end');
-      if (canShowQR && data.qr_token) {
-        if (prev.qr_token !== data.qr_token) {
-          prev.qr_token = data.qr_token;
-          const src = `/qr.png?token=${data.qr_token}`;
-          requestAnimationFrame(() => {
-            if (qrImg)  { qrImg.src = src; qrImg.style.display = 'block'; }
-            if (qrPhEl) qrPhEl.style.display = 'none';
-            if (qrDebugEl) qrDebugEl.textContent = `${location.origin}/elev?token=${data.qr_token}`;
-          });
+      function setText(el, text, key) {
+        if (!el) return;
+        if (prev[key] !== text) {
+          prev[key] = text;
+          requestAnimationFrame(() => { el.textContent = text; });
         }
-      } else {
-        if (prev.qr_token !== null) prev.qr_token = null;
-        requestAnimationFrame(() => {
-          if (qrImg)   qrImg.style.display = 'none';
-          if (qrPhEl)  qrPhEl.style.display = 'flex';
-          if (qrDebugEl) qrDebugEl.textContent = '';
-        });
       }
 
-      console.log(`[${nowTS()}][tick] mode=${data.mode} token=${!!data.qr_token} took ${Math.round(performance.now()-t0)}ms`);
+      // —— Scheduler strict (un singur timer, fără overlap) ——
+      let timerId = null;
+      let inFlight = false;
+      const nowTS = () => new Date().toISOString().split('T')[1].slice(0,12);
 
-    } catch (e) {
-      console.error(`[${nowTS()}][tick] error`, e);
-      nextMode = 'off';
-      nextAt   = null;
-    } finally {
-      inFlight = false;
-      scheduleNextTick(nextMode, nextAt);
-    }
-  }
+      function scheduleNextTick(mode, nextAtISO){
+        const FAST = 3000, SLOW = 60000;
 
-  tick();
-})();
+        // curăță orice timer vechi înainte să programezi unul nou
+        if (timerId) { clearTimeout(timerId); timerId = null; }
+
+        // dacă avem o oră exactă de trezire și suntem în off/sleep, programează fix acolo
+        if (nextAtISO && (mode === 'off' || mode === 'sleep')) {
+          const t = Date.parse(nextAtISO);
+          const delay = Math.max(0, t - Date.now() + 250); // buffer mic
+          console.log(`[${nowTS()}][sched] mode=${mode} wake in ${Math.round(delay/1000)}s`);
+          timerId = setTimeout(tick, delay);
+          return;
+        }
+
+        // altfel, interval după mod
+        const interval = (mode === 'active' || mode === 'end') ? FAST : SLOW;
+        console.log(`[${nowTS()}][sched] mode=${mode} interval ${interval/1000}s`);
+        timerId = setTimeout(tick, interval);
+      }
+
+      async function tick() {
+        if (inFlight) {
+          console.warn(`[${nowTS()}][tick] SKIP inFlight`); return;
+        }
+        inFlight = true;
+        const t0 = performance.now();
+
+        let nextMode = 'off';
+        let nextAt   = null;
+
+        try {
+          const r = await fetch(`/api/monitor_status?session_id=${sessionId}`, { cache: 'no-store' });
+          if (!r.ok) {
+            console.warn(`[${nowTS()}][tick] API status`, r.status); return;
+          }
+          const data = await r.json();
+          nextMode = data.mode;
+          nextAt   = data.next_window_at || null;
+
+          // — UI updates (dif) —
+          setText(clockEl, data.ora_curenta || '--:--', 'ora_curenta');
+          setText(dateEl,  data.data_curenta || '{{ data_curenta }}', 'data_curenta');
+
+          const subText = data.window_label
+            ? `Fereastră check-in: ${data.window_label}. Bife verzi = prezenți.` : '';
+          setText(subEl, subText, 'window_label');
+
+          setText(presentPill, `${data.present_count} / ${data.total}`, 'present_count_total');
+          setText(leftPill,    `${(data.left_count ?? 0)} / ${data.present_count}`, 'left_over_present');
+
+          const titleText =
+            data.mode === 'end'    ? 'Cod de final de oră' :
+            data.mode === 'active' ? 'Cod de început de oră' :
+            data.mode === 'sleep'  ? 'Oră în desfășurare' :
+                                      'În afara orelor';
+          setText(qrTitleEl, titleText, 'mode_title');
+
+          document.body.setAttribute('data-mode', data.mode);
+
+          const scanText =
+            data.mode === 'end'    ? 'Scanează pentru a-ți confirma plecarea' :
+            data.mode === 'active' ? 'Scanează pentru a-ți confirma prezența' :
+            data.mode === 'sleep' ? '' :
+                                      'Nu există o sesiune activă.';
+          setText(qrScanTextEl, scanText, 'scan_text');
+
+          // Afișăm QR doar în active/end (nu riscăm token rezidual)
+          const canShowQR = (data.mode === 'active' || data.mode === 'end');
+          if (canShowQR && data.qr_token) {
+            if (prev.qr_token !== data.qr_token) {
+              prev.qr_token = data.qr_token;
+              const src = `/qr.png?token=${data.qr_token}`;
+              requestAnimationFrame(() => {
+                if (qrImg)  { qrImg.src = src; qrImg.style.display = 'block'; }
+                if (qrPhEl) qrPhEl.style.display = 'none';
+                if (qrDebugEl) qrDebugEl.textContent = `${location.origin}/elev?token=${data.qr_token}`;
+              });
+            }
+          } else {
+            if (prev.qr_token !== null) prev.qr_token = null;
+            requestAnimationFrame(() => {
+              if (qrImg)   qrImg.style.display = 'none';
+              if (qrPhEl)  qrPhEl.style.display = 'flex';
+              if (qrDebugEl) qrDebugEl.textContent = '';
+            });
+          }
+
+          console.log(`[${nowTS()}][tick] mode=${data.mode} token=${!!data.qr_token} took ${Math.round(performance.now()-t0)}ms`);
+
+        } catch (e) {
+          console.error(`[${nowTS()}][tick] error`, e);
+          nextMode = 'off';
+          nextAt   = null;
+        } finally {
+          inFlight = false;
+          scheduleNextTick(nextMode, nextAt);
+        }
+      }
+
+      tick();
+    })();
 </script>
-
-
 
 
 </body>

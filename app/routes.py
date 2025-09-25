@@ -196,16 +196,16 @@ def elev():
             return redirect(url_for("main.elev", token=token), code=302)
 
     if not token:
-        return render_template("elev.html", session_id=None, message="Lipsește tokenul semnat din link.", status_final=None)
+        return render_template("token_error.html", reason="Lipsește tokenul semnat din link."), 404
 
     # Validare token + extragem session_id/faza
     s = get_qr_serializer(current_app)
     try:
         data = s.loads(token, max_age=current_app.config["QR_MAX_AGE"])
     except SignatureExpired:
-        return render_template("elev.html", session_id=None, message="Token expirat", status_final=None)
+        return render_template("token_error.html", reason="Tokenul a expirat. Scanează din nou codul QR."), 404
     except BadSignature:
-        return render_template("elev.html", session_id=None, message="Token invalid", status_final=None)
+        return render_template("token_error.html", reason="Token invalid. Te rugăm scanează din nou codul QR."), 404
 
     token_phase = data.get("phase")            # "start" sau "end"
     session_id  = int(data.get("session_id"))  # din token, nu din URL

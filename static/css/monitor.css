@@ -25,7 +25,15 @@
       border-bottom: 1px solid rgba(148,163,184,.12);
     }
     .clock{font-size: clamp(2rem, 6vw, 5rem); font-weight:800; letter-spacing: .02em;}
-    .class-pill{font-size: clamp(1rem, 2.5vw, 1.25rem); color: var(--muted);}
+    .class-pill{
+        font-size: clamp(1.5rem, 2.5vw, 1.25rem);
+        color: var(--muted);display:flex;
+        gap:.5rem;
+        display:flex;
+        flex-direction:column;
+        align-items:flex-end;   /* aliniază conținutul la dreapta */
+        gap:.5rem;
+    }
     .class-pill strong{ color: var(--accent); }
 
     /* Main grid */
@@ -60,7 +68,7 @@
     .present{background: rgba(52,211,153,.15); color:#86efac; border:1px solid rgba(52,211,153,.35)}
     .missing{background: rgba(148,163,184,.12); color:#ff0000; border:1px solid rgba(148,163,184,.25)}
     .late{background: rgba(148,163,184,.12); color:#ffff00; border:1px solid rgba(148,163,184,.25)}
-    .gone{background: rgba(148,163,184,.12); color:#22d3ee; border:1px solid rgba(148,163,184,.25)}
+    .left{background: rgba(148,163,184,.12); color:#22d3ee; border:1px solid rgba(148,163,184,.25)}
     .badge .dot{width:.6rem; height:.6rem; border-radius:50%; background: currentColor; opacity:.9}
 
     /* Right side: QR & Counter */
@@ -105,3 +113,18 @@
 .counter .pill { display:inline-block; min-width: 8ch; text-align:center; }
 .date { min-width: 12ch; display:inline-block; }
 
+body[data-mode="off"]  #presence-panel,
+body[data-mode="off"]  #class-pill { display: none !important; }
+#class-pill {
+    min-width: 350px;
+}
+
+.legend { margin-top:1.75rem; display:flex; flex-wrap:wrap; gap:.5rem; color:var(--muted); }
+
+.fs-btn{
+  padding:.5rem .75rem; border-radius:999px; font-weight:700; letter-spacing:.01em;
+  margin-bottom: 1.75rem;
+  background:rgba(34,211,238,.12); border:1px solid rgba(34,211,238,.35); color:#67e8f9;
+  cursor:pointer;
+}
+.fs-btn:hover{ filter:brightness(1.1); }
