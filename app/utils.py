@@ -1,5 +1,5 @@
 # app/utils.py
-from datetime import datetime
+from datetime import datetime, timedelta
 from itsdangerous import URLSafeSerializer
 
 def get_qr_serializer(app):
@@ -19,3 +19,11 @@ def parse_iso(s: str) -> datetime:
         if s and len(s) >= 5 and s[-3] == ':' and s[-6] in ('+', '-'):
             s = s[:-3] + s[-2:]           # transformă +03:00 -> +0300
         return datetime.strptime(s, "%Y-%m-%dT%H:%M:%S%z")
+
+def parse_date_yyyy_mm_dd(value: str, tz):
+    """'2025-09-26' -> datetime aware (00:00:00, TZ)"""
+    return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=tz)
+
+def inclusive_end_of_day(d: datetime):
+    """primește un datetime aware la 00:00 și întoarce 23:59:59 pentru aceeași zi"""
+    return d + timedelta(days=1) - timedelta(seconds=1)

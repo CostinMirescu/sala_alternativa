@@ -9,6 +9,7 @@ from .reporting import fetch_report_data
 from datetime import datetime, timedelta
 from io import StringIO, BytesIO
 import csv, zipfile
+from .utils import parse_date_yyyy_mm_dd, inclusive_end_of_day
 
 
 bp = Blueprint("dirig", __name__, url_prefix="/diriginti")
@@ -43,10 +44,15 @@ def logout():
 def raport():
     tz = current_app.config["TZ"]
     # interval
-    dfrom = request.args.get("from"); dto = request.args.get("to")
+    dfrom = request.args.get("from")
+    dto = request.args.get("to")
     if dfrom and dto:
-        start = tz.localize(datetime.strptime(dfrom, "%Y-%m-%d"))
-        end   = tz.localize(datetime.strptime(dto,   "%Y-%m-%d")) + timedelta(days=1) - timedelta(seconds=1)
+        try:
+            start = parse_date_yyyy_mm_dd(dfrom, tz)
+            end = inclusive_end_of_day(parse_date_yyyy_mm_dd(dto, tz))
+        except ValueError:
+            return "Format de dată invalid. Folosește YYYY-MM-DD.", 400
+
     else:
         start, end = week_bounds_now(tz)
 
@@ -63,10 +69,15 @@ def raport():
 @login_required
 def export_zip():
     tz = current_app.config["TZ"]
-    dfrom = request.args.get("from"); dto = request.args.get("to")
+    dfrom = request.args.get("from")
+    dto = request.args.get("to")
     if dfrom and dto:
-        start = tz.localize(datetime.strptime(dfrom, "%Y-%m-%d"))
-        end   = tz.localize(datetime.strptime(dto,   "%Y-%m-%d")) + timedelta(days=1) - timedelta(seconds=1)
+        try:
+            start = parse_date_yyyy_mm_dd(dfrom, tz)
+            end = inclusive_end_of_day(parse_date_yyyy_mm_dd(dto, tz))
+        except ValueError:
+            return "Format de dată invalid. Folosește YYYY-MM-DD.", 400
+
     else:
         start, end = week_bounds_now(tz)
 
