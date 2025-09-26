@@ -108,8 +108,11 @@ def monitor():
         return "Sesiune inexistentă", 404
 
     class_id = sess["class_id"]
-    starts_at = parse_iso(sess["starts_at"])  # aware
-    ends_at = parse_iso(sess["ends_at"])
+
+
+    starts_at = _parse_iso(sess["starts_at"])  # aware
+    ends_at = _parse_iso(sess["ends_at"])
+
     now = datetime.now(tz=current_app.config["TZ"])
     delta = int((now - starts_at).total_seconds())
 
@@ -136,6 +139,7 @@ def monitor():
         last2 = (code4 or "")[-2:]
         st = status_map.get(h, "neconfirmat")
         codes_ui.append({"last2": last2, "status": st})
+
 
     present_count = sum(1 for c in codes_ui if c["status"] in ("prezent","întârziat"))
     left_count = sum(1 for c in codes_ui if c["status"] == "plecat")
@@ -172,14 +176,17 @@ def monitor():
         qr_token=qr_token,
         qr_title=qr_title,
         left_count=left_count,
+
         phase=phase,
         data_curenta=data_curenta
+
     )
 
 
 # --- Elev ---
 @bp.route("/elev", methods=["GET", "POST"])
 def elev():
+
     # Acceptă token din query SAU din POST (hidden field)
     token = request.args.get("token") or request.form.get("token")
     session_id = None
@@ -222,7 +229,7 @@ def elev():
 
     conn = get_connection()
     cur = conn.cursor()
-
+    
     cur.execute("SELECT id, class_id, starts_at, ends_at FROM session WHERE id=?", (session_id,))
     sess = cur.fetchone()
     if not sess:
@@ -230,6 +237,7 @@ def elev():
         return render_template("elev.html", session_id=session_id, message="Sesiune inexistentă", status_final=None)
 
     class_id = sess["class_id"]
+
     starts_at = parse_iso(sess["starts_at"])
     ends_at   = parse_iso(sess["ends_at"])
 
@@ -272,6 +280,7 @@ def elev():
     st = _status_for(delta)  # None dacă în afara ferestrei 0-10 min
     if st is None:
         conn.close()
+
         return render_template("elev.html", session_id=session_id, message="Ora a început de mai mult de zece minute. Nu mai este permis check-in-ul.", status_final=None)
 
     # Anti-fraud (device_id + rate-limit + device folosit pt. alt cod + duplicat)
@@ -372,6 +381,7 @@ def api_monitor_status():
         return jsonify({"error": "session not found"}), 404
 
     class_id = sess["class_id"]
+
     starts_at = parse_iso(sess["starts_at"])  # aware
     ends_at = parse_iso(sess["ends_at"])
     now = datetime.now(tz=current_app.config["TZ"])
@@ -379,8 +389,6 @@ def api_monitor_status():
     mode_internal = wins["mode"]
     delta = int((now - starts_at).total_seconds())
     phase = "start" if now < (ends_at - timedelta(minutes=5)) else "end"
-
-
 
     # coduri autorizate pentru clasă
     cur.execute("SELECT code4_hash FROM authorized_code WHERE class_id=? ORDER BY id", (class_id,))
@@ -398,6 +406,7 @@ def api_monitor_status():
         last2 = (code4 or "")[-2:]
         codes.append({"last2": last2, "status": st})
     conn.close()
+
 
     before_end_5m = ends_at - timedelta(minutes=5)
 
@@ -418,8 +427,6 @@ def api_monitor_status():
         window_label = "expirat (>10 min)"
 
     sleep_until = before_end_5m.strftime("%Y-%m-%dT%H:%M:%S%z")
-
-
 
     # Publicăm "off" pentru pre/post (ecran unificat)
     if mode_internal in ("pre", "post"):
@@ -444,6 +451,7 @@ def api_monitor_status():
         nxt = wins["w_checkin_start"]  # datetime aware
         next_window_at = nxt.strftime("%Y-%m-%dT%H:%M:%S%z")
         next_window_hhmm = nxt.strftime("%H:%M")
+
 
     # prezent acum (doar pentru calcul intern)
     present_now = sum(1 for h in authorized if status_map.get(h) in ("prezent", "întârziat"))
@@ -478,6 +486,7 @@ def api_monitor_status():
 
     data_curenta = now.strftime("%d %b %Y")  # ex: 23 Sep 2025
 
+
     window_label = _window_label(now, starts_at, current_app.config)
 
     return jsonify({
@@ -491,12 +500,14 @@ def api_monitor_status():
         "qr_token": qr_token,          # <— IMPORTANT
         "data_curenta": data_curenta,
         "mode": mode,
+
         "reason": reason,
         "sleep_until": sleep_until,
         "left_count": left_count,
         "next_window_at": next_window_at,  # ISO sau None
         "next_window_hhmm": next_window_hhmm,  # "HH:MM" sau None
         "codes": codes
+
     })
 
 

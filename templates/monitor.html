@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>{{ title }}</title>
 
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ config['ASSET_VER'] }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/monitor.css') }}?v={{ config['ASSET_VER'] }}">
 
@@ -14,6 +15,7 @@
 <body>
 <div class="wrap">
     <header>
+
         <div>
             <div class="clock" aria-live="polite">{{ ora_curenta }}</div>
             <div class="date" style="opacity:.75;font-size:1.2rem;margin-top:.1rem">{{ data_curenta }}</div>
@@ -63,6 +65,7 @@
                     <span class="badge left"><span class="dot"></span> plecat</span>
                     <span class="badge missing">neconfirmat</span>
                 </div>
+
             </div>
 
         </section>
@@ -71,6 +74,7 @@
             <h2 id="qr-title">Cod de început de oră</h2>
             <div class="qr-box" aria-label="cod QR — scanează pentru a confirma prezența">
                 <img id="qr-img" src="" alt="QR">
+
                 <div id="qr-ph" aria-hidden="true" style="display:none;
          width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
                     <div style="text-align:center;color:#334155">
@@ -78,6 +82,7 @@
                         <div style="font-size:3rem;line-height:1">⌛</div>
                     </div>
                 </div>
+
             </div>
             <div class="qr-caption" id="qr-scan-text"></div>
             <div id="qr-debug" class="qr-caption" style="user-select:all; max-width:500px"></div>
@@ -87,11 +92,13 @@
 
     <footer>
         <span>Copyright (c) 2025 Colegiul Național "Barbu Știrbei" Călărași</span>
+
     </footer>
 </div>
 
 <script>
     (function(){
+
       const btn = document.getElementById('fs-btn');
       if(!btn) return;
 
@@ -292,9 +299,11 @@ if (leftWrap) {
         }
       }
 
+
       tick();
     })();
 </script>
+
 
 
 </body>

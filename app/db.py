@@ -133,6 +133,7 @@ def init_db() -> None:
     CREATE INDEX IF NOT EXISTS idx_schedule_class ON schedule(class_id);
     """)
 
+
     try:
         cur.execute("ALTER TABLE attendance ADD COLUMN check_out_at TEXT")
     except sqlite3.OperationalError:
