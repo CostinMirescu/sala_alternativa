@@ -1,6 +1,6 @@
 from datetime import datetime
 from .db import get_connection
-from .utils import parse_iso, _hms
+from .utils import parse_iso, _hms, format_ts_local
 
 def fetch_report_data(class_id: str, start_dt, end_dt, tz):
     """
@@ -103,7 +103,7 @@ def fetch_report_data(class_id: str, start_dt, end_dt, tz):
     }
     for r in cur.fetchall():
         attempts.append({
-            "ts": r["ts"], "device_id": r["device_id"],
+            "ts": format_ts_local(r["ts"], tz), "device_id": r["device_id"],
             "cod4": code_map.get(r["code4_hash"], "") if r["code4_hash"] else "",
             "success": r["success"], "reason": REASON_RO.get(r["reason"], r["reason"]),
             "ip": r["ip"], "ua": (r["user_agent"] or "")[:80]

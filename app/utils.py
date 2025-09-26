@@ -36,3 +36,14 @@ def _hms(iso_str: str) -> str:
         return parse_iso(iso_str).strftime("%H:%M:%S")
     except Exception:
         return ""  # fallback safe
+
+
+def format_ts_local(iso_str: str, tz) -> str:
+    """ISO with offset → 'YYYY-MM-DD HH:MM:SS' in given TZ"""
+    if not iso_str:
+        return ""
+    try:
+        dt = parse_iso(iso_str).astimezone(tz)
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return iso_str  # fallback: lasă cum e
