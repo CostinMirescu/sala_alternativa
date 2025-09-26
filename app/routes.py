@@ -133,8 +133,9 @@ def monitor():
     for r in rows:
         h = r[0]
         code4 = (r[1] or "").strip() or "????"  # fallback dacă nu e populat încă
+        last2 = (code4 or "")[-2:]
         st = status_map.get(h, "neconfirmat")
-        codes_ui.append({"code4": code4, "status": st})
+        codes_ui.append({"last2": last2, "status": st})
 
     present_count = sum(1 for c in codes_ui if c["status"] in ("prezent","întârziat"))
     left_count = sum(1 for c in codes_ui if c["status"] == "plecat")
@@ -394,8 +395,8 @@ def api_monitor_status():
     codes = []
     for h, code4 in rows:
         st = status_map.get(h, "neconfirmat")
-        codes.append({"code4": code4, "status": st})
-
+        last2 = (code4 or "")[-2:]
+        codes.append({"last2": last2, "status": st})
     conn.close()
 
     before_end_5m = ends_at - timedelta(minutes=5)

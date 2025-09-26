@@ -35,7 +35,7 @@
                 <div class="codes" role="list">
                     {% for c in codes %}
                     <div class="code" role="listitem">
-                        <b>{{ c.code4 }}</b> <!-- mascăm; poți înlocui cu altă logică -->
+                        <b>⬤ ⬤ {{ c.last2 }}</b>
                         {% if c.status == 'prezent' %}
                         <span class="badge present" title="prezent"><span class="dot"></span> prezent</span>
                         {% elif c.status == 'întârziat' %}
@@ -247,7 +247,7 @@ if (leftWrap) {
 
           if (Array.isArray(data.codes)) {
   for (const item of data.codes) {
-    const row = codeRowMap.get(item.code4);
+    const row = codeRowMap.get(item.last2);
     if (row) setBadge(row, item.status);
   }
 }

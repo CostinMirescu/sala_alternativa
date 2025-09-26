@@ -1,10 +1,111 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ro">
 <head>
-    <meta charset="UTF-8">
-    <title>Monitor off</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Monitor – În afara orelor</title>
+  <style>
+    :root{
+      --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb;
+      --accent:#22d3ee;
+    }
+    html,body{height:100%}
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
+      background: radial-gradient(1200px 800px at 10% 10%, #0b1226 0%, var(--bg) 50%),
+                  radial-gradient(1200px 800px at 100% 0%, #0a1729 0%, var(--bg) 60%);
+      color:var(--text);
+    }
+    .wrap{display:grid; grid-template-rows:auto 1fr auto; min-height:100%}
+
+    header{
+      display:grid; grid-template-columns: 1fr auto; align-items:center;
+      gap:2rem; padding:1.2rem 2rem; background: rgba(17,24,39,.6); backdrop-filter: blur(6px);
+      border-bottom: 1px solid rgba(148,163,184,.12);
+    }
+    .clock{font-size: clamp(2rem, 6vw, 5rem); font-weight:800; letter-spacing:.02em}
+    .date{color:var(--muted); font-weight:600; margin-top:.25rem}
+    .hdr-right{display:flex; flex-direction:column; align-items:flex-end; gap:.5rem}
+    .fs-btn{
+      padding:.45rem .75rem; border-radius:999px; font-weight:700; letter-spacing:.01em;
+      background:rgba(34,211,238,.12); border:1px solid rgba(34,211,238,.35); color:#67e8f9; cursor:pointer;
+    }
+    .main{display:grid; grid-template-columns: 1.8fr 1.2fr; gap:2rem; padding:2rem}
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid rgba(148,163,184,.12); border-radius:18px; padding:1.25rem 1.25rem 1.5rem;
+    }
+    .card h2{margin:.2rem 0 1rem; font-size: clamp(1.2rem, 2.8vw, 1.6rem); font-weight:700; letter-spacing:.01em}
+    .placeholder{
+      display:grid; place-items:center; min-height:320px;
+      border:1px dashed rgba(148,163,184,.25); border-radius:14px; color:var(--muted);
+      padding:2rem; text-align:center;
+    }
+    .qr-panel{display:grid; grid-template-rows:auto 1fr auto; row-gap:1rem; justify-items:center; text-align:center}
+    .qr-box{
+      aspect-ratio:1/1; width:min(52vmin, 520px); border-radius:16px; overflow:hidden;
+      border:1px solid rgba(148,163,184,.18); background:#0b1328; display:grid; place-items:center;
+      color:var(--muted)
+    }
+    footer{padding:1rem 2rem; color:var(--muted); font-size:.9rem; border-top:1px solid rgba(148,163,184,.12)}
+    @media (max-width: 1000px){ .main{grid-template-columns:1fr} }
+  </style>
 </head>
 <body>
-Monitor off
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="clock" aria-live="polite">--:--</div>
+        <div class="date">—</div>
+      </div>
+      <div class="hdr-right">
+        <button id="fs-btn" class="fs-btn" type="button" aria-label="Ecran complet">⛶ Fullscreen</button>
+        <div class="class-pill" style="color:var(--muted)">În afara orelor</div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="card" id="presence-panel" aria-labelledby="off-title">
+        <h2 id="off-title">Sala Alternativă</h2>
+        <div class="placeholder">
+          <div>
+            <div style="font-weight:800; font-size:1.25rem; margin-bottom:.25rem;">Nu există o sesiune activă</div>
+            <div>Program: Lu–Vi, orele stabilite de școală</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card qr-panel" aria-labelledby="qr-title">
+        <h2 id="qr-title">Cod QR</h2>
+        <div class="qr-box">—</div>
+        <div style="color:var(--muted)">QR-ul va apărea automat la începutul orei</div>
+      </aside>
+    </main>
+
+    <footer>
+      <span>Acest ecran este static. La începutul următoarei ore, deschide <kbd>/monitor</kbd> sau apasă <kbd>F5</kbd>.</span>
+      <span style="float:right; opacity:.7">Sfat: <kbd>F11</kbd> pentru full-screen.</span>
+    </footer>
+  </div>
+
+  <script>
+    // ceas & dată locale (fără fetch)
+    const clockEl = document.querySelector('.clock');
+    const dateEl  = document.querySelector('.date');
+    function pad(n){ return n.toString().padStart(2,'0'); }
+    function tick(){
+      const d = new Date();
+      clockEl.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      dateEl.textContent  = d.toLocaleDateString('ro-RO', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+    }
+    setInterval(tick, 1000); tick();
+
+    // fullscreen toggle
+    const fsBtn = document.getElementById('fs-btn');
+    fsBtn?.addEventListener('click', () => {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+      else document.exitFullscreen?.();
+    });
+  </script>
 </body>
 </html>
