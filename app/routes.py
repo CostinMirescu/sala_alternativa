@@ -11,6 +11,7 @@ from io import BytesIO
 import qrcode
 from itsdangerous import BadSignature, SignatureExpired
 from datetime import datetime, timedelta
+from .utils import aware_from_hhmm
 
 def _windows(now, starts_at, ends_at, cfg):
     """
@@ -89,7 +90,7 @@ def _checkout_allowed(now, ends_at):
 
 
 # --- Monitor ---
-@bp.get("/monitor")
+# @bp.get("/monitor")
 def monitor():
     """Afișează lista codurilor pentru o sesiune + statusuri/contor.
     Parametri: session_id (obligatoriu)
@@ -526,8 +527,8 @@ def _find_or_create_current_session(tz):
 
     candidate = None
     for p in periods:
-        start_today = tz.localize(datetime.combine(now.date(), datetime.strptime(p["start_hhmm"], "%H:%M").time()))
-        end_today   = start_today + timedelta(minutes=60)
+        start_today = aware_from_hhmm(now.date(), p["start_hhmm"], tz)
+        end_today = start_today + timedelta(minutes=60)
         if (start_today - timedelta(minutes=5)) <= now <= (end_today + timedelta(minutes=10)):
             candidate = (p["period_no"], start_today, end_today)
             break

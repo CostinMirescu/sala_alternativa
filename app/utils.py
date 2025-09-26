@@ -47,3 +47,13 @@ def format_ts_local(iso_str: str, tz) -> str:
         return dt.strftime("%Y-%m-%d %H:%M:%S")
     except Exception:
         return iso_str  # fallback: lasă cum e
+
+
+def aware_from_hhmm(date_obj, hhmm: str, tz):
+    """Construiește un datetime aware în TZ pentru data + 'HH:MM'."""
+    t = datetime.strptime(hhmm, "%H:%M").time()
+    # Python 3.11+: poți folosi datetime.combine(date_obj, t, tzinfo=tz)
+    return datetime(
+        date_obj.year, date_obj.month, date_obj.day,
+        t.hour, t.minute, 0, 0, tzinfo=tz
+    )

@@ -8,6 +8,7 @@ from .dirig import bp as dirig_bp
 from datetime import datetime, timedelta
 from .db import get_connection
 import csv
+from .utils import aware_from_hhmm
 
 
 def create_app():
@@ -136,31 +137,82 @@ def create_app():
     @click.argument("csv_path")
     def import_schedule_cmd(csv_path):
         """
-        Importă orarul: CSV cu coloane: weekday,period_no,class_id
-        Exemplu rând: 1,3,11C
+        Importă orarul în tabelul `schedule`.
+        Acceptă CSV cu sau fără header.
+        Coloane (în această ordine dacă nu există header):
+          weekday,period_no,class_id
         """
+        import io, csv
         conn = get_connection();
         cur = conn.cursor()
-        count = 0
-        with open(csv_path, newline='', encoding="utf-8") as f:
-            for row in csv.DictReader(f) if f.readline().strip().lower().startswith("weekday") else csv.reader(
-                    open(csv_path, encoding="utf-8")):
-                if isinstance(row, dict):
-                    wd = int(row["weekday"]);
-                    per = int(row["period_no"]);
-                    cls = row["class_id"].strip()
-                else:
-                    wd, per, cls = int(row[0]), int(row[1]), row[2].strip()
-                cur.execute("INSERT OR REPLACE INTO schedule(weekday, period_no, class_id) VALUES(?,?,?)",
+        inserted = 0;
+        replaced = 0;
+        skipped = 0
+
+        # Deschidem cu utf-8-sig ca să mâncăm BOM dacă există
+        with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
+            data = f.read()
+
+        # Detectăm dialectul (delimiter etc.), fallback la virgulă
+        try:
+            dialect = csv.Sniffer().sniff(data.splitlines()[0] if data else ",")
+        except Exception:
+            dialect = csv.excel
+            dialect.delimiter = ','
+
+        buf = io.StringIO(data)
+        # Peek la prima linie
+        first_line = buf.readline()
+        has_header = False
+        try:
+            has_header = csv.Sniffer().has_header(first_line + "\n")
+        except Exception:
+            pass
+        buf.seek(0)
+
+        if has_header:
+            reader = csv.DictReader(buf, dialect=dialect)
+        else:
+            reader = csv.reader(buf, dialect=dialect)
+
+        def parse_row(row):
+            if isinstance(row, dict):
+                # normalizează cheile (lower/trim)
+                keys = {k.strip().lower(): v for k, v in row.items()}
+                try:
+                    wd = int(str(keys.get("weekday", "")).strip())
+                    per = int(str(keys.get("period_no", "")).strip())
+                    cls = str(keys.get("class_id", "")).strip()
+                except Exception:
+                    raise ValueError("Row invalid (nu pot converti câmpuri).")
+            else:
+                if len(row) < 3:
+                    raise ValueError("Row invalid (mai puțin de 3 coloane).")
+                wd, per, cls = int(str(row[0]).strip()), int(str(row[1]).strip()), str(row[2]).strip()
+            return wd, per, cls
+
+        for raw in reader:
+            try:
+                wd, per, cls = parse_row(raw)
+                # Validări simple
+                if wd < 1 or wd > 5 or per < 1 or per > 7 or not cls:
+                    skipped += 1
+                    continue
+                cur.execute("INSERT OR REPLACE INTO schedule(weekday, period_no, class_id) VALUES (?,?,?)",
                             (wd, per, cls))
-                count += 1
+                # INSERT OR REPLACE nu ne spune clar dacă a înlocuit; nuanța nu contează mult
+                inserted += 1
+            except Exception:
+                skipped += 1
+                continue
+
         conn.commit();
         conn.close()
-        click.echo(f"OK: schedule imported ({count} rows)")
+        click.echo(f"Import schedule: ok={inserted}, skipped={skipped}")
 
     def _gen_session_for(class_id: str, date_obj, start_hhmm: str, tz):
         """Creează sesiune (dacă lipsește) pentru clasa dată, în ziua/ora dată."""
-        starts = tz.localize(datetime.combine(date_obj, datetime.strptime(start_hhmm, "%H:%M").time()))
+        starts = aware_from_hhmm(date_obj, start_hhmm, tz)
         ends = starts + timedelta(minutes=60)
         conn = get_connection();
         cur = conn.cursor()
