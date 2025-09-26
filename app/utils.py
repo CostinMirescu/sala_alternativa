@@ -27,3 +27,12 @@ def parse_date_yyyy_mm_dd(value: str, tz):
 def inclusive_end_of_day(d: datetime):
     """primește un datetime aware la 00:00 și întoarce 23:59:59 pentru aceeași zi"""
     return d + timedelta(days=1) - timedelta(seconds=1)
+
+
+def _hms(iso_str: str) -> str:
+    if not iso_str:
+        return ""
+    try:
+        return parse_iso(iso_str).strftime("%H:%M:%S")
+    except Exception:
+        return ""  # fallback safe

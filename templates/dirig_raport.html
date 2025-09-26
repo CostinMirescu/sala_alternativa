@@ -2,6 +2,9 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Raport – {{ class_id }}</title>
 <style>
+  ::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+}
 body{margin:0;background:#0f172a;color:#e5e7eb;font-family:system-ui}
 .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
 .card{background:rgba(255,255,255,.04);border:1px solid rgba(148,163,184,.12);border-radius:16px;padding:16px;margin-bottom:16px}
@@ -67,16 +70,16 @@ summary{cursor:pointer;color:#e5e7eb}
   </div>
 
   <div class="card">
-    <h3>Tentative și scanări (anti-fraud)</h3>
+    <h3>Tabel scanări (anti-fraud)</h3>
     <table>
       <thead><tr>
-        <th>Timp</th><th>Device</th><th>Cod</th><th>Succes</th><th>Motiv</th><th>IP</th><th>User-Agent</th>
+        <th>Timp</th><th>Device</th><th>Cod</th><th>Succes</th><th>Motiv</th>
       </tr></thead>
       <tbody>
       {% for a in attempts %}
         <tr>
           <td>{{ a.ts }}</td><td>{{ a.device_id }}</td><td class="code">{{ a.cod4 }}</td>
-          <td>{{ a.success }}</td><td>{{ a.reason }}</td><td>{{ a.ip }}</td><td>{{ a.ua }}</td>
+          <td>{{ a.success }}</td><td>{{ a.reason }}</td>
         </tr>
       {% else %}
         <tr><td colspan="7">Nu există date în interval.</td></tr>

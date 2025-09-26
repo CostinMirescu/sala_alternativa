@@ -1,6 +1,6 @@
 from datetime import datetime
 from .db import get_connection
-from .utils import parse_iso
+from .utils import parse_iso, _hms
 
 def fetch_report_data(class_id: str, start_dt, end_dt, tz):
     """
@@ -58,8 +58,8 @@ def fetch_report_data(class_id: str, start_dt, end_dt, tz):
                     "sesiune_id": sid,
                     "cod4": code4,
                     "status_final": final,
-                    "check_in_at": ci or "",
-                    "check_out_at": co or "",
+                    "check_in_at": _hms(ci),
+                    "check_out_at": _hms(co),
                     "status_checkin": status if status in ("prezent","întârziat") else "-",
                     "status_checkout": "plecat" if co else "-",
                 })
@@ -95,11 +95,17 @@ def fetch_report_data(class_id: str, start_dt, end_dt, tz):
                  start_dt.strftime("%Y-%m-%dT%H:%M:%S%z"),
                  end_dt.strftime("%Y-%m-%dT%H:%M:%S%z")))
     attempts = []
+    REASON_RO = {
+        "rate-limit": "prea multe încercări într-un minut",
+        "device-used-for-other-code": "același dispozitiv folosit pentru alt cod în această oră",
+        "duplicate-code": "cod deja folosit în această oră",
+        "ok": "înregistrare reușită",
+    }
     for r in cur.fetchall():
         attempts.append({
             "ts": r["ts"], "device_id": r["device_id"],
             "cod4": code_map.get(r["code4_hash"], "") if r["code4_hash"] else "",
-            "success": r["success"], "reason": r["reason"],
+            "success": r["success"], "reason": REASON_RO.get(r["reason"], r["reason"]),
             "ip": r["ip"], "ua": (r["user_agent"] or "")[:80]
         })
 
