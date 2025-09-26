@@ -1,0 +1,87 @@
+<!doctype html><html lang="ro"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Raport – {{ class_id }}</title>
+<style>
+body{margin:0;background:#0f172a;color:#e5e7eb;font-family:system-ui}
+.wrap{max-width:1200px;margin:24px auto;padding:0 16px}
+.card{background:rgba(255,255,255,.04);border:1px solid rgba(148,163,184,.12);border-radius:16px;padding:16px;margin-bottom:16px}
+h2{margin:0 0 8px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 10px;border-bottom:1px solid rgba(148,163,184,.15);font-variant-numeric:tabular-nums}
+th{text-align:left;color:#94a3b8}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input[type=date]{padding:8px 10px;border-radius:10px;border:1px solid rgba(148,163,184,.3);background:#0b1328;color:#e5e7eb}
+.btn{padding:8px 12px;border-radius:10px;background:#0ea5e9;border:1px solid #38bdf8;color:#082f49;text-decoration:none;font-weight:700}
+details{background:rgba(255,255,255,.02);border:1px solid rgba(148,163,184,.15);border-radius:12px;padding:8px 10px;margin:6px 0}
+summary{cursor:pointer;color:#e5e7eb}
+.code{font-weight:700}
+.badge{padding:.15rem .5rem;border-radius:999px;border:1px solid rgba(148,163,184,.25)}
+.present{background:rgba(52,211,153,.12);color:#86efac;border-color:rgba(52,211,153,.35)}
+.late{background:rgba(245,158,11,.12);color:#fde68a;border-color:rgba(245,158,11,.35)}
+.left{background:rgba(59,130,246,.15);color:#93c5fd;border-color:rgba(59,130,246,.35)}
+.missing{background:rgba(148,163,184,.10);color:#fca5a5;border-color:rgba(148,163,184,.25)}
+</style>
+</head><body><div class="wrap">
+  <div class="card">
+    <h2>Raport – clasa {{ class_id }}</h2>
+    <form class="controls" method="get">
+      <label>De la: <input type="date" name="from" value="{{ start }}"></label>
+      <label>Până la: <input type="date" name="to"   value="{{ end }}"></label>
+      <button class="btn" type="submit">Filtrează</button>
+      <a class="btn" href="{{ url_for('dirig.export_zip', from=request.args.get('from', start), to=request.args.get('to', end)) }}">Descarcă ZIP (CSV)</a>
+      <a class="btn" href="{{ url_for('dirig.logout') }}">Logout</a>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Rezumat pe oră</h3>
+    {% for s in summary %}
+      <details>
+        <summary>
+          {{ s.data }} — {{ s.incepe }}–{{ s.se_termina }} • prez: {{ s.prezenti }}, întâr: {{ s.intarziati }}, plecați: {{ s.plecati }}, neconf: {{ s.neconfirmat }} • conformare: {{ s.rata_conformare }}
+        </summary>
+        <table>
+          <thead><tr>
+            <th>Data</th><th>Începe</th><th>Se termină</th><th>Cod</th><th>Status final</th><th>Check-in</th><th>Check-out</th><th>Sesiune</th>
+          </tr></thead>
+          <tbody>
+          {% for d in detail if d.sesiune_id == s.sesiune_id %}
+            <tr>
+              <td>{{ d.data }}</td><td>{{ d.incepe }}</td><td>{{ d.se_termina }}</td>
+              <td class="code">{{ d.cod4 }}</td>
+              <td>
+                <span class="badge
+                  {% if d.status_final=='prezent' %}present{% elif d.status_final=='întârziat' %}late{% elif d.status_final=='plecat' %}left{% else %}missing{% endif %}">
+                  {{ d.status_final }}
+                </span>
+              </td>
+              <td>{{ d.check_in_at }}</td><td>{{ d.check_out_at }}</td><td>{{ d.sesiune_id }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </details>
+    {% else %}
+      <div>Nu există sesiuni în interval.</div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <h3>Tentative și scanări (anti-fraud)</h3>
+    <table>
+      <thead><tr>
+        <th>Timp</th><th>Device</th><th>Cod</th><th>Succes</th><th>Motiv</th><th>IP</th><th>User-Agent</th>
+      </tr></thead>
+      <tbody>
+      {% for a in attempts %}
+        <tr>
+          <td>{{ a.ts }}</td><td>{{ a.device_id }}</td><td class="code">{{ a.cod4 }}</td>
+          <td>{{ a.success }}</td><td>{{ a.reason }}</td><td>{{ a.ip }}</td><td>{{ a.ua }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7">Nu există date în interval.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div></body></html>

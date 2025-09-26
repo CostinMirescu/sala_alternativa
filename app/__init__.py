@@ -3,6 +3,10 @@ from dotenv import load_dotenv
 import os
 from zoneinfo import ZoneInfo
 from flask.cli import with_appcontext
+from .auth import load_current_teacher
+from .dirig import bp as dirig_bp
+
+
 
 def create_app():
     load_dotenv()
@@ -83,7 +87,35 @@ def create_app():
         s = _seed(class_id, start.strftime(iso), end.strftime(iso))
         click.echo(f"Session created id={s.id} for class {class_id} ({s.starts_at} → {s.ends_at})")
 
+    from werkzeug.security import generate_password_hash
+
+    @app.cli.command("create-teacher")
+    @with_appcontext
+    @click.option("--email", required=True)
+    @click.option("--class", "class_id", required=True)
+    @click.option("--password", prompt=True, hide_input=True, confirmation_prompt=True)
+    def create_teacher_cmd(email, class_id, password):
+        from .db import get_connection
+        from datetime import datetime
+        conn = get_connection();
+        cur = conn.cursor()
+        cur.execute("INSERT OR REPLACE INTO teacher(email,password_hash,class_id,created_at) VALUES (?,?,?,?)",
+                    (email, generate_password_hash(password), class_id,
+                     datetime.now(app.config["TZ"]).strftime("%Y-%m-%dT%H:%M:%S%z")))
+        conn.commit();
+        conn.close()
+        click.echo(f"OK: teacher {email} for class {class_id}")
+
+    @app.before_request
+    def _load_teacher():
+        load_current_teacher()
+
+    app.register_blueprint(dirig_bp)
+
     return app
+
+
+
 
 
 from itsdangerous import URLSafeTimedSerializer

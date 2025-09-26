@@ -102,7 +102,16 @@ def init_db() -> None:
         """
     )
 
-
+    cur.executescript("""
+    CREATE TABLE IF NOT EXISTS teacher (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      class_id TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_teacher_class ON teacher(class_id);
+    """)
 
     try:
         cur.execute("ALTER TABLE attendance ADD COLUMN check_out_at TEXT")
