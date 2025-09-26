@@ -113,6 +113,26 @@ def init_db() -> None:
     CREATE INDEX IF NOT EXISTS idx_teacher_class ON teacher(class_id);
     """)
 
+    cur.executescript("""
+    CREATE TABLE IF NOT EXISTS period (
+      period_no   INTEGER PRIMARY KEY,   -- 1..7
+      start_hhmm  TEXT NOT NULL          -- '08:00', '09:00', ...
+    );
+
+    CREATE TABLE IF NOT EXISTS schedule (
+      weekday    INTEGER NOT NULL,       -- 1=Luni .. 5=Vineri
+      period_no  INTEGER NOT NULL REFERENCES period(period_no),
+      class_id   TEXT NOT NULL,
+      PRIMARY KEY (weekday, period_no),
+      FOREIGN KEY (period_no) REFERENCES period(period_no)
+    );
+
+    -- Asigură unicitatea sesiunilor pe (class_id, starts_at)
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_session_class_start ON session(class_id, starts_at);
+    CREATE INDEX IF NOT EXISTS idx_session_starts ON session(starts_at);
+    CREATE INDEX IF NOT EXISTS idx_schedule_class ON schedule(class_id);
+    """)
+
     try:
         cur.execute("ALTER TABLE attendance ADD COLUMN check_out_at TEXT")
     except sqlite3.OperationalError:

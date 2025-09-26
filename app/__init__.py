@@ -1,11 +1,13 @@
-from flask import Flask
+from flask import Flask, current_app
 from dotenv import load_dotenv
 import os
 from zoneinfo import ZoneInfo
 from flask.cli import with_appcontext
 from .auth import load_current_teacher
 from .dirig import bp as dirig_bp
-
+from datetime import datetime, timedelta
+from .db import get_connection
+import csv
 
 
 def create_app():
@@ -29,6 +31,8 @@ def create_app():
     app.config["CHECKOUT_OPEN_MIN_BEFORE_END"] = int(os.getenv("CHECKOUT_OPEN_MIN_BEFORE_END", "5"))
     app.config["CHECKOUT_GRACE_MIN_AFTER_END"] = int(os.getenv("CHECKOUT_GRACE_MIN_AFTER_END", "5"))
     app.config["SESSION_LENGTH_MIN"] = int(os.getenv("SESSION_LENGTH_MIN", "50"))
+
+    app.config.setdefault("AUTO_SESSIONS_ENABLED", os.getenv("AUTO_SESSIONS_ENABLED", "false").lower() == "true")
 
     from .routes import bp as main_bp
     app.register_blueprint(main_bp)
@@ -95,7 +99,7 @@ def create_app():
     @click.option("--class", "class_id", required=True)
     @click.option("--password", prompt=True, hide_input=True, confirmation_prompt=True)
     def create_teacher_cmd(email, class_id, password):
-        from .db import get_connection
+
         from datetime import datetime
         conn = get_connection();
         cur = conn.cursor()
@@ -105,6 +109,108 @@ def create_app():
         conn.commit();
         conn.close()
         click.echo(f"OK: teacher {email} for class {class_id}")
+
+    @app.cli.command("seed-periods")
+    @with_appcontext
+    def seed_periods_cmd():
+        """Inserează cele 7 sloturi orare."""
+        slots = [
+            (1, "08:00"),
+            (2, "09:00"),
+            (3, "10:00"),
+            (4, "11:10"),
+            (5, "12:10"),
+            (6, "13:10"),
+            (7, "14:10"),
+        ]
+        conn = get_connection();
+        cur = conn.cursor()
+        for no, hhmm in slots:
+            cur.execute("INSERT OR REPLACE INTO period(period_no, start_hhmm) VALUES(?,?)", (no, hhmm))
+        conn.commit();
+        conn.close()
+        click.echo("OK: periods seeded")
+
+    @app.cli.command("import-schedule")
+    @with_appcontext
+    @click.argument("csv_path")
+    def import_schedule_cmd(csv_path):
+        """
+        Importă orarul: CSV cu coloane: weekday,period_no,class_id
+        Exemplu rând: 1,3,11C
+        """
+        conn = get_connection();
+        cur = conn.cursor()
+        count = 0
+        with open(csv_path, newline='', encoding="utf-8") as f:
+            for row in csv.DictReader(f) if f.readline().strip().lower().startswith("weekday") else csv.reader(
+                    open(csv_path, encoding="utf-8")):
+                if isinstance(row, dict):
+                    wd = int(row["weekday"]);
+                    per = int(row["period_no"]);
+                    cls = row["class_id"].strip()
+                else:
+                    wd, per, cls = int(row[0]), int(row[1]), row[2].strip()
+                cur.execute("INSERT OR REPLACE INTO schedule(weekday, period_no, class_id) VALUES(?,?,?)",
+                            (wd, per, cls))
+                count += 1
+        conn.commit();
+        conn.close()
+        click.echo(f"OK: schedule imported ({count} rows)")
+
+    def _gen_session_for(class_id: str, date_obj, start_hhmm: str, tz):
+        """Creează sesiune (dacă lipsește) pentru clasa dată, în ziua/ora dată."""
+        starts = tz.localize(datetime.combine(date_obj, datetime.strptime(start_hhmm, "%H:%M").time()))
+        ends = starts + timedelta(minutes=60)
+        conn = get_connection();
+        cur = conn.cursor()
+        try:
+            cur.execute("INSERT INTO session(class_id, starts_at, ends_at) VALUES (?,?,?)",
+                        (class_id, starts.strftime("%Y-%m-%dT%H:%M:%S%z"), ends.strftime("%Y-%m-%dT%H:%M:%S%z")))
+            conn.commit()
+            sid = cur.lastrowid
+        except Exception:
+            # exista deja
+            cur.execute("SELECT id FROM session WHERE class_id=? AND starts_at=?",
+                        (class_id, starts.strftime("%Y-%m-%dT%H:%M:%S%z")))
+            row = cur.fetchone();
+            sid = row["id"] if row else None
+        finally:
+            conn.close()
+        return sid
+
+    @app.cli.command("gen-day")
+    @with_appcontext
+    @click.option("--date", "date_str", help="YYYY-MM-DD (default azi)")
+    @click.option("--dry-run", is_flag=True, help="Nu inserează, doar afișează")
+    def gen_day_cmd(date_str, dry_run):
+        """Generează sesiunile pentru toate sloturile programate într-o zi (Lu–Vi)."""
+        tz = current_app.config["TZ"]
+        now = datetime.now(tz)
+        date_obj = (datetime.strptime(date_str, "%Y-%m-%d") if date_str else now).date()
+        weekday = (date_obj.weekday() + 1)  # 1..7 (1=Luni)
+        if weekday > 5:
+            click.echo("Zi nelucrătoare (Sa/Du) – nimic de generat.");
+            return
+
+        conn = get_connection();
+        cur = conn.cursor()
+        cur.execute("SELECT period_no, start_hhmm FROM period ORDER BY period_no")
+        periods = cur.fetchall()
+        cur.execute("SELECT weekday, period_no, class_id FROM schedule WHERE weekday=? ORDER BY period_no", (weekday,))
+        sched = {(r["period_no"]): r["class_id"] for r in cur.fetchall()}
+        conn.close()
+
+        created = 0
+        for p in periods:
+            cls = sched.get(p["period_no"])
+            if not cls: continue
+            if dry_run:
+                click.echo(f"would create: {date_obj} {p['start_hhmm']} class {cls}")
+            else:
+                sid = _gen_session_for(cls, date_obj, p["start_hhmm"], tz)
+                if sid: created += 1
+        click.echo(f"Done. sessions created or already present: {created}")
 
     @app.before_request
     def _load_teacher():

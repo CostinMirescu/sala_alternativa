@@ -355,7 +355,10 @@ def elev():
 def api_monitor_status():
     session_id = request.args.get("session_id", type=int)
     if not session_id:
-        return jsonify({"error": "missing session_id"}), 400
+        sid = _find_or_create_current_session(current_app.config["TZ"])
+        if not sid:
+            return jsonify({"mode": "off"}), 200
+        session_id = sid
 
     conn = get_connection()
     cur = conn.cursor()
@@ -508,3 +511,68 @@ def qr_png():
     img.save(buf, format="PNG")
     buf.seek(0)
     return send_file(buf, mimetype="image/png", max_age=0)
+
+
+def _find_or_create_current_session(tz):
+    now = datetime.now(tz)
+    weekday = now.isoweekday()  # 1..7
+    if weekday > 5:
+        return None  # weekend
+
+    # află ce period ar fi în fereastra noastră (start-5 .. end+10)
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("SELECT period_no, start_hhmm FROM period ORDER BY period_no")
+    periods = cur.fetchall()
+
+    candidate = None
+    for p in periods:
+        start_today = tz.localize(datetime.combine(now.date(), datetime.strptime(p["start_hhmm"], "%H:%M").time()))
+        end_today   = start_today + timedelta(minutes=60)
+        if (start_today - timedelta(minutes=5)) <= now <= (end_today + timedelta(minutes=10)):
+            candidate = (p["period_no"], start_today, end_today)
+            break
+    if not candidate:
+        conn.close()
+        return None
+
+    period_no, starts, ends = candidate
+    # caută în schedule clasa programată
+    cur.execute("SELECT class_id FROM schedule WHERE weekday=? AND period_no=?", (weekday, period_no))
+    row = cur.fetchone()
+    if not row:
+        conn.close(); return None
+    class_id = row["class_id"]
+
+    # cauți sesiunea existentă sau creezi dacă flagul e ON
+    starts_iso = starts.strftime("%Y-%m-%dT%H:%M:%S%z")
+    cur.execute("SELECT id FROM session WHERE class_id=? AND starts_at=?", (class_id, starts_iso))
+    srow = cur.fetchone()
+    if srow:
+        sid = srow["id"]; conn.close(); return sid
+
+    # creează doar dacă e activat
+    if not current_app.config.get("AUTO_SESSIONS_ENABLED", False):
+        conn.close(); return None
+
+    try:
+        cur.execute("INSERT INTO session(class_id, starts_at, ends_at) VALUES (?,?,?)",
+                    (class_id, starts_iso, ends.strftime("%Y-%m-%dT%H:%M:%S%z")))
+        conn.commit()
+        sid = cur.lastrowid
+    finally:
+        conn.close()
+    return sid
+
+
+@bp.get("/monitor")
+def monitor_auto():
+    # dacă ai ?session_id, folosește ruta existentă (nu o mai arăt aici)
+    sid = request.args.get("session_id", type=int)
+    if sid:
+        return monitor()  # ruta ta existentă care randă monitor pentru un id
+
+    sid = _find_or_create_current_session(current_app.config["TZ"])
+    if sid:
+        return redirect(url_for("main.monitor", session_id=sid), code=302)
+    # nici o sesiune validă: arată monitor “off” (poți avea un template minimal)
+    return render_template("monitor_off.html")
