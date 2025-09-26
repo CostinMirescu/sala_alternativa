@@ -4,7 +4,7 @@ from werkzeug.security import check_password_hash
 
 from .auth import login_required
 from .db import get_connection
-from .routes import _parse_iso  # reutilizăm helperul tău
+from .utils import parse_iso
 from .reporting import fetch_report_data
 from datetime import datetime, timedelta
 from io import StringIO, BytesIO

@@ -2,7 +2,7 @@ from __future__ import annotations
 from flask import Blueprint, render_template, request, redirect, url_for
 from datetime import datetime, timezone, timedelta
 
-from . import get_qr_serializer
+from .utils import get_qr_serializer, parse_iso
 from .db import get_connection, _hash_code
 from flask import current_app
 from flask import jsonify
@@ -72,12 +72,6 @@ def home():
 
 # --- Helpers ---
 
-def _parse_iso(s: str) -> datetime:
-    # Acceptă "2025-09-23T10:00:00+02:00" sau "2025-09-23T10:00:00+0200"
-    if s.endswith(('+01:00','+02:00','+03:00','+00:00','-01:00','-02:00')):
-        s = s[:-3] + s[-2:]
-    return datetime.strptime(s, "%Y-%m-%dT%H:%M:%S%z")
-
 
 def _status_for(delta_seconds: int) -> str | None:
     if 0 <= delta_seconds < 5*60:
@@ -113,8 +107,8 @@ def monitor():
         return "Sesiune inexistentă", 404
 
     class_id = sess["class_id"]
-    starts_at = _parse_iso(sess["starts_at"])  # aware
-    ends_at = _parse_iso(sess["ends_at"])
+    starts_at = parse_iso(sess["starts_at"])  # aware
+    ends_at = parse_iso(sess["ends_at"])
     now = datetime.now(tz=current_app.config["TZ"])
     delta = int((now - starts_at).total_seconds())
 
@@ -159,7 +153,7 @@ def monitor():
     data_curenta = now.strftime("%d %b %Y")
     phase = "start" if now < (ends_at - timedelta(minutes=5)) else "end"
 
-    from app import get_qr_serializer  # dacă l-ai pus în __init__.py
+
     s = get_qr_serializer(current_app)
     qr_token = s.dumps({"session_id": session_id, "phase": phase})
     qr_title = "Cod de început de oră" if phase == "start" else "Cod de final de oră"
@@ -234,8 +228,8 @@ def elev():
         return render_template("elev.html", session_id=session_id, message="Sesiune inexistentă", status_final=None)
 
     class_id = sess["class_id"]
-    starts_at = _parse_iso(sess["starts_at"])
-    ends_at   = _parse_iso(sess["ends_at"])
+    starts_at = parse_iso(sess["starts_at"])
+    ends_at   = parse_iso(sess["ends_at"])
 
     now = datetime.now(tz=current_app.config["TZ"])
     delta = int((now - starts_at).total_seconds())
@@ -373,8 +367,8 @@ def api_monitor_status():
         return jsonify({"error": "session not found"}), 404
 
     class_id = sess["class_id"]
-    starts_at = _parse_iso(sess["starts_at"])  # aware
-    ends_at = _parse_iso(sess["ends_at"])
+    starts_at = parse_iso(sess["starts_at"])  # aware
+    ends_at = parse_iso(sess["ends_at"])
     now = datetime.now(tz=current_app.config["TZ"])
     wins = _windows(now, starts_at, ends_at, current_app.config)
     mode_internal = wins["mode"]

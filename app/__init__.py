@@ -116,14 +116,4 @@ def create_app():
 
 
 
-
-
-from itsdangerous import URLSafeTimedSerializer
-
-
-def get_qr_serializer(app):
-    return URLSafeTimedSerializer(secret_key=app.config["SECRET_KEY"],
-                                  salt=app.config["QR_SALT"])
-
-
 from pathlib import Path  # noqa: E402  (used in CLI)

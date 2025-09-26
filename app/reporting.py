@@ -1,6 +1,6 @@
 from datetime import datetime
 from .db import get_connection
-from .routes import _parse_iso  # helperul tău existent (ISO→aware)
+from .utils import parse_iso
 
 def fetch_report_data(class_id: str, start_dt, end_dt, tz):
     """
@@ -20,9 +20,9 @@ def fetch_report_data(class_id: str, start_dt, end_dt, tz):
     sessions = cur.fetchall()
 
     # coduri autorizate (hash + plaintext)
-    cur.execute("SELECT code4_hash, code4 FROM authorized_code WHERE class_id=? ORDER BY id", (class_id,))
+    cur.execute("SELECT code4_hash, code4_plain FROM authorized_code WHERE class_id=? ORDER BY id", (class_id,))
     auth_rows = cur.fetchall()
-    code_map = {r["code4_hash"]: r["code4"] for r in auth_rows}
+    code_map = {r["code4_hash"]: r["code4_plain"] for r in auth_rows}
     authorized_hashes = list(code_map.keys())
 
     detail_rows = []
@@ -30,7 +30,7 @@ def fetch_report_data(class_id: str, start_dt, end_dt, tz):
 
     for s in sessions:
         sid = s["id"]
-        starts = _parse_iso(s["starts_at"]); ends = _parse_iso(s["ends_at"])
+        starts = parse_iso(s["starts_at"]); ends = parse_iso(s["ends_at"])
 
         # status curente
         cur.execute("""SELECT code4_hash, status, check_in_at, check_out_at
