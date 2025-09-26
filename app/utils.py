@@ -1,11 +1,11 @@
 # app/utils.py
 from datetime import datetime, timedelta
-from itsdangerous import URLSafeSerializer
+from itsdangerous import URLSafeTimedSerializer
 
 def get_qr_serializer(app):
     # Folosește SECRET_KEY deja setat în config
     secret = app.config["SECRET_KEY"]
-    return URLSafeSerializer(secret, salt="qr")
+    return URLSafeTimedSerializer(secret, salt="qr")
 
 def parse_iso(s: str) -> datetime:
     """

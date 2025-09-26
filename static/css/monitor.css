@@ -74,7 +74,7 @@
 
     /* Right side: QR & Counter */
     .qr-panel{display:grid; grid-template-rows: auto 1fr auto; row-gap:1rem; justify-items:center; text-align:center}
-    .qr-box{aspect-ratio:1/1; width:min(32vmin, 320px); border-radius:16px; overflow:hidden; border:1px solid rgba(148,163,184,.18);
+    .qr-box{aspect-ratio:1/1; width:min(42vmin, 420px); border-radius:16px; overflow:hidden; border:1px solid rgba(148,163,184,.18);
             background:#fff; display:grid; place-items:center;}
     .qr-caption{color:var(--muted)}
 

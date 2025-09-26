@@ -270,7 +270,7 @@ def elev():
     st = _status_for(delta)  # None dacă în afara ferestrei 0-10 min
     if st is None:
         conn.close()
-        return render_template("elev.html", session_id=session_id, message="Fereastra de check-in a expirat (după 10 minute de la început)", status_final=None)
+        return render_template("elev.html", session_id=session_id, message="Ora a început de mai mult de zece minute. Nu mai este permis check-in-ul.", status_final=None)
 
     # Anti-fraud (device_id + rate-limit + device folosit pt. alt cod + duplicat)
     device_id = (request.form.get("device_id") or "").strip()
@@ -427,7 +427,6 @@ def api_monitor_status():
     # Token doar în active/end
     qr_token = None
     if mode in ("active", "end"):
-        from . import get_qr_serializer
         s = get_qr_serializer(current_app)
         phase = "start" if mode == "active" else "end"
         qr_token = s.dumps({"session_id": session_id, "phase": phase})

@@ -93,14 +93,14 @@ def export_zip():
             for r in rows: w.writerow(r)
             z.writestr(name, sio.getvalue())
 
-        write_csv("attendance.csv", detail_rows,
+        write_csv("prezenta.csv", detail_rows,
                   ["data","incepe","se_termina","clasa","sesiune_id","cod4",
                    "status_final","check_in_at","check_out_at","status_checkin","status_checkout"])
 
-        write_csv("summary.csv", summary_rows,
+        write_csv("sumar.csv", summary_rows,
                   ["sesiune_id","data","incepe","se_termina","prezenti","intarziati","plecati","neconfirmat","rata_conformare"])
 
-        write_csv("attempts.csv", attempts,
+        write_csv("scanari.csv", attempts,
                   ["ts","device_id","cod4","success","reason","ip","ua"])
 
     buf.seek(0)
