@@ -15,16 +15,20 @@ from zoneinfo import ZoneInfo
 ISO_FMT = "%Y-%m-%dT%H:%M:%S%z"  # ex: 2025-09-23T10:00:00+0200
 
 
-def _db_path_from_url(db_url: str) -> Path:
-    # Acceptăm doar sqlite:///... (fișier) în pilot
-    prefix = "sqlite:///"
-    if not db_url.startswith(prefix):
+# sus, asigură importul
+from urllib.parse import urlparse
+
+def _db_path_from_url(db_url: str) -> str:
+    if not db_url.startswith("sqlite:"):
         raise ValueError("Only sqlite:/// URLs are supported in pilot")
-    rel = db_url[len(prefix):]                  # fără leading slash
-    # Notă: dacă rămâne leading slash pe Windows, Path îl tratează ca absolut (C:\...)
-    rel = rel.lstrip("/\\")                     # defensiv: taie orice slash la început
-    root = Path(current_app.root_path).parent   # rădăcina repo-ului (folderul proiectului)
-    return (root / rel).resolve()
+    u = urlparse(db_url)
+    path = u.path or ""
+    # urlparse('sqlite:////data/sala.db').path == '//data/sala.db'
+    # vrem '/data/sala.db' (absolut), nu 'data/sala.db' (relativ)
+    if path.startswith("//"):
+        path = path[1:]  # //data/... -> /data/...
+    return path if path else "instance/sala.db"
+
 
 
 
