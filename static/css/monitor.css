@@ -8,7 +8,8 @@
       --warn: #f59e0b;        /* amber-500 */
     }
 
-    html,body{height:100%;}
+
+
     body{
       margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
       background: radial-gradient(1200px 800px at 10% 10%, #0b1226 0%, var(--bg) 50%),
@@ -25,7 +26,15 @@
       border-bottom: 1px solid rgba(148,163,184,.12);
     }
     .clock{font-size: clamp(2rem, 6vw, 5rem); font-weight:800; letter-spacing: .02em;}
-    .class-pill{font-size: clamp(1rem, 2.5vw, 1.25rem); color: var(--muted);}
+    .class-pill{
+        font-size: clamp(1.5rem, 2.5vw, 1.25rem);
+        color: var(--muted);display:flex;
+        gap:.5rem;
+        display:flex;
+        flex-direction:column;
+        align-items:flex-end;   /* aliniază conținutul la dreapta */
+        gap:.5rem;
+    }
     .class-pill strong{ color: var(--accent); }
 
     /* Main grid */
@@ -60,12 +69,14 @@
     .present{background: rgba(52,211,153,.15); color:#86efac; border:1px solid rgba(52,211,153,.35)}
     .missing{background: rgba(148,163,184,.12); color:#ff0000; border:1px solid rgba(148,163,184,.25)}
     .late{background: rgba(148,163,184,.12); color:#ffff00; border:1px solid rgba(148,163,184,.25)}
-    .gone{background: rgba(148,163,184,.12); color:#22d3ee; border:1px solid rgba(148,163,184,.25)}
+
+    .left{background: rgba(148,163,184,.12); color:#22d3ee; border:1px solid rgba(148,163,184,.25)}
+
     .badge .dot{width:.6rem; height:.6rem; border-radius:50%; background: currentColor; opacity:.9}
 
     /* Right side: QR & Counter */
     .qr-panel{display:grid; grid-template-rows: auto 1fr auto; row-gap:1rem; justify-items:center; text-align:center}
-    .qr-box{aspect-ratio:1/1; width:min(52vmin, 520px); border-radius:16px; overflow:hidden; border:1px solid rgba(148,163,184,.18);
+    .qr-box{aspect-ratio:1/1; width:min(42vmin, 420px); border-radius:16px; overflow:hidden; border:1px solid rgba(148,163,184,.18);
             background:#fff; display:grid; place-items:center;}
     .qr-caption{color:var(--muted)}
 
@@ -73,7 +84,7 @@
     .qr-box svg{width:100%; height:100%; display:block}
 
     .counter{
-      margin-top: .5rem; display:flex; align-items:center; gap:.75rem; font-size: clamp(1.3rem, 4.5vw, 2rem);
+      margin-top: 1.5rem; display:flex; align-items:center; gap:.75rem; font-size: clamp(1.3rem, 4.5vw, 2rem);
       font-weight:800; letter-spacing:.02em
     }
     .counter .pill{background: rgba(34,211,238,.12); color:#67e8f9; border:1px solid rgba(34,211,238,.35);
@@ -101,3 +112,34 @@
   object-fit: contain;         /* să nu fie decupat */
   image-rendering: pixelated;  /* QR-ul arată mai clar la scalare */
 }
+.clock, .counter .pill { font-variant-numeric: tabular-nums; }
+.counter .pill { display:inline-block; min-width: 8ch; text-align:center; }
+.date { min-width: 12ch; display:inline-block; }
+
+body[data-mode="off"]  #presence-panel,
+body[data-mode="off"]  #class-pill { display: none !important; }
+#class-pill {
+    min-width: 350px;
+}
+
+#presence-panel{
+  display:flex;
+  flex-direction:column;
+  min-width: 320px;            /* o ai deja pentru placeholder-ul QR */
+  min-height: 100%;            /* dacă secțiunea e într-un card cu height auto, poți scoate */
+}
+
+.legend{
+  margin-top:auto;             /* împinge legenda la bază */
+  display:flex; flex-wrap:wrap; gap:.5rem;
+  color: var(--muted);
+}
+
+
+.fs-btn{
+  padding:.5rem .75rem; border-radius:999px; font-weight:700; letter-spacing:.01em;
+  margin-bottom: 1.75rem;
+  background:rgba(34,211,238,.12); border:1px solid rgba(34,211,238,.35); color:#67e8f9;
+  cursor:pointer;
+}
+.fs-btn:hover{ filter:brightness(1.1); }

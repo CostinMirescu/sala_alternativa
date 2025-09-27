@@ -5,46 +5,67 @@
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>{{ title }}</title>
-    <meta http-equiv="refresh" content="10"> <!-- auto-refresh simplu -->
+
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ config['ASSET_VER'] }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/monitor.css') }}?v={{ config['ASSET_VER'] }}">
+
 
 </head>
 <body>
 <div class="wrap">
     <header>
-        <div class="clock" aria-live="polite">{{ ora_curenta }}</div>
 
+        <div>
+            <div class="clock" aria-live="polite">{{ ora_curenta }}</div>
+            <div class="date" style="opacity:.75;font-size:1.2rem;margin-top:.1rem">{{ data_curenta }}</div>
+        </div>
 
-        <div class="class-pill">Acum la religie: <strong>Clasa {{ class_id }}</strong></div>
-        <div class="date" style="opacity:.75;font-size:1.2rem;margin-top:.1rem">—</div>
+        <div class="class-pill">
+            <button id="fs-btn" class="fs-btn" type="button" aria-label="Pornește modul ecran complet">⛶ Fullscreen
+            </button>
+            <div id="class-pill"> Acum la Religie: <strong>Clasa {{ class_id }}</strong></div>
+        </div>
+
     </header>
 
     <main class="main">
-        <section class="card" aria-labelledby="list-coduri">
-            <h2 id="list-coduri">Elevi care nu participă la ora de religie</h2>
-            <!--            <p class="sub">Fereastră check‑in: {{ window_label }}. Bife verzi = prezenți.</p>-->
-            <div class="codes" role="list">
-                {% for c in codes %}
-                <div class="code" role="listitem">
-                    <b>{{ c.code4 }}</b> <!-- mascăm; poți înlocui cu altă logică -->
-                    {% if c.status == 'prezent' %}
-                    <span class="badge present" title="prezent"><span class="dot"></span> prezent</span>
-                    {% elif c.status == 'întârziat' %}
-                    <span class="badge late" title="întârziat"><span class="dot"></span> întârziat</span>
-                    {% elif c.status == 'plecat' %}
-                    <span class="badge gone" title="plecat"><span class="dot"></span> plecat</span>
-                    {% else %}
-                    <span class="badge missing" title="neconfirmat">neconfirmat</span>
-                    {% endif %}
+        <section class="card" aria-labelledby="list-coduri" style="min-width:883px">
+            <div id="presence-panel">
+                <h2 id="list-coduri">Elevi care nu participă la ora de Religie</h2>
+                <!--            <p class="sub">Fereastră check‑in: {{ window_label }}. Bife verzi = prezenți.</p>-->
+                <div class="codes" role="list">
+                    {% for c in codes %}
+                    <div class="code" role="listitem">
+                        <b>⬤ ⬤ {{ c.last2 }}</b>
+                        {% if c.status == 'prezent' %}
+                        <span class="badge present" title="prezent"><span class="dot"></span> prezent</span>
+                        {% elif c.status == 'întârziat' %}
+                        <span class="badge late" title="întârziat"><span class="dot"></span> întârziat</span>
+                        {% elif c.status == 'plecat' %}
+                        <span class="badge left" title="plecat"><span class="dot"></span> plecat</span>
+                        {% else %}
+                        <span class="badge missing" title="neconfirmat">neconfirmat</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
-            </div>
-            <div class="counter" aria-live="polite">
-                Prezenți: <span class="pill" id="present-pill">0 / 0</span>
-            </div>
-            <div class="counter" aria-live="polite">
-                Plecați: <span class="pill" id="left-pill">0 / 0</span>
+                <div class="counter" aria-live="polite">
+                    Prezenți: <span class="pill" id="present-pill">0 / 0</span>
+                </div>
+                <div class="counter" aria-live="polite" id="left-wrap">
+                    Plecați: <span class="pill" id="left-pill">0 / 0</span>
+                </div>
+
+
+                <div class="legend" aria-label="Legendă statusuri">
+                    Legendă
+                    <span class="badge present"><span class="dot"></span> prezent</span>
+                    <span class="badge late"><span class="dot"></span> întârziat</span>
+                    <span class="badge left"><span class="dot"></span> plecat</span>
+                    <span class="badge missing">neconfirmat</span>
+                </div>
+
             </div>
 
         </section>
@@ -53,6 +74,15 @@
             <h2 id="qr-title">Cod de început de oră</h2>
             <div class="qr-box" aria-label="cod QR — scanează pentru a confirma prezența">
                 <img id="qr-img" src="" alt="QR">
+
+                <div id="qr-ph" aria-hidden="true" style="display:none;
+         width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+                    <div style="text-align:center;color:#334155">
+                        <!-- un mini-placeholder (emoji/ASCII e suficient) -->
+                        <div style="font-size:3rem;line-height:1">⌛</div>
+                    </div>
+                </div>
+
             </div>
             <div class="qr-caption" id="qr-scan-text"></div>
             <div id="qr-debug" class="qr-caption" style="user-select:all; max-width:500px"></div>
@@ -62,101 +92,218 @@
 
     <footer>
         <span>Copyright (c) 2025 Colegiul Național "Barbu Știrbei" Călărași</span>
-        <span class="fs-hint">Sfat: apasă <kbd>F11</kbd> pentru full-screen.</span>
+
     </footer>
 </div>
 
 <script>
     (function(){
-      const sessionId = {{ session_id|int }};
-      const clockEl = document.querySelector('.clock');
-      const subEl = document.querySelector('.sub');
 
-      const dateEl = document.querySelector('.date');
-      const presentPill = document.getElementById('present-pill');
-      const leftPill    = document.getElementById('left-pill');
+      const btn = document.getElementById('fs-btn');
+      if(!btn) return;
 
-      async function tick(){
-        try{
-          const r = await fetch(`/api/monitor_status?session_id=${sessionId}`, {cache:'no-store'});
-          if(!r.ok) return;
-          const data = await r.json();
-          if(clockEl) clockEl.textContent = data.ora_curenta || '--:--';
-          if(subEl) subEl.textContent = `Fereastră check‑in: ${data.window_label}. Bife verzi = prezenți.`;
-          if (presentPill) presentPill.textContent = `${data.present_count} / ${data.total}`;
-          if (leftPill)    leftPill.textContent    = `${data.left_count} / ${data.present_count}`;
-          if (dateEl) dateEl.textContent = data.data_curenta || '';
-        }catch(e){ /* ignorăm erorile intermitente */ }
-        setTimeout(tick, 3000);
+      function updateLabel(){
+        const on = !!document.fullscreenElement;
+        btn.textContent = on ? '↙ Ieșire Fullscreen' : '⛶ Fullscreen';
+        btn.setAttribute('aria-label', on ? 'Ieșire din ecran complet' : 'Pornește modul ecran complet');
       }
-      tick();
+      btn.addEventListener('click', async () => {
+        try{
+          if(!document.fullscreenElement){
+            await document.documentElement.requestFullscreen();
+          }else{
+            await document.exitFullscreen();
+          }
+          updateLabel();
+        }catch(e){ console.warn('fullscreen error', e); }
+      });
+      document.addEventListener('fullscreenchange', updateLabel);
+      updateLabel();
     })();
 </script>
 
 <script>
-    (function(){
-      const params    = new URLSearchParams(location.search);
-      const sessionId = Number(params.get('session_id'));
+    (function () {
+      const sessionId = Number(new URLSearchParams(location.search).get('session_id'));
       if (!sessionId) { console.warn('Lipsește ?session_id='); return; }
 
-      const clockEl   = document.querySelector('.clock');
-      const dateEl    = document.querySelector('.date');
-      const counterEl = document.querySelector('.counter .pill');
-      const qrImg     = document.getElementById('qr-img');
-      const qrTitleEl = document.getElementById('qr-title');
-      const qrDebugEl = document.getElementById('qr-debug');
+      const clockEl      = document.querySelector('.clock');
+      const dateEl       = document.querySelector('.date');
+      const subEl        = document.querySelector('.sub');
+      const presentPill  = document.getElementById('present-pill');
+      const leftPill     = document.getElementById('left-pill');
+      const qrImg        = document.getElementById('qr-img');
+      const qrTitleEl    = document.getElementById('qr-title');
+      const qrDebugEl    = document.getElementById('qr-debug');
       const qrScanTextEl = document.getElementById('qr-scan-text');
+      const qrPhEl       = document.getElementById('qr-ph');
 
-      let lastToken = null;
+      const prev = { ora_curenta:null, data_curenta:null, present_count:null,
+        total:null, left_count:null, mode:null, qr_token:null, window_label:null };
 
-      async function tick(){
-        try{
-          const r = await fetch(`/api/monitor_status?session_id=${sessionId}`, {cache:'no-store'});
-          if(!r.ok){ console.log('API status', r.status); setTimeout(tick, 3000); return; }
-          const data = await r.json();
-          console.log('API:', {mode: data.mode, hasToken: !!data.qr_token});
+        // Mapăm fiecare rând după cod (textul din <b>)
+const codeRowMap = new Map();
+document.querySelectorAll('.codes .code').forEach(row => {
+  const b = row.querySelector('b');
+  const code = b ? (b.textContent || '').trim() : '';
+  if (code) codeRowMap.set(code, row);
+});
 
-          if (clockEl)   clockEl.textContent = data.ora_curenta || '--:--';
-          if (dateEl)    dateEl.textContent  = data.data_curenta || '';
-          if (counterEl) counterEl.textContent = `${data.present_count} / ${data.total}`;
+function setBadge(row, status){
+  const badge = row.querySelector('.badge');
+  if (!badge) return;
+  // clase țintite
+  const cls =
+    status === 'prezent'    ? 'badge present' :
+    status === 'întârziat'  ? 'badge late' :
+    status === 'plecat'     ? 'badge left' :
+                               'badge missing';
+  if (badge.className !== cls) badge.className = cls;
 
-          if (qrTitleEl){
-            qrTitleEl.textContent =
-              data.mode === 'end'    ? 'Cod de final de oră' :
-              data.mode === 'active' ? 'Cod de început de oră' :
-              'Ora este în desfășurare';
-          }
+  const txt =
+    status === 'prezent'    ? 'prezent' :
+    status === 'întârziat'  ? 'întârziat' :
+    status === 'plecat'     ? 'plecat' : 'neconfirmat';
+  // doar dacă s-a schimbat textul
+  if ((badge.textContent || '').trim() !== txt) {
+    // păstrăm bulina dacă există
+    const hasDot = !!badge.querySelector('.dot');
+    badge.innerHTML = hasDot ? `<span class="dot"></span> ${txt}` : txt;
+  }
+}
 
-           if (qrScanTextEl){
-            qrScanTextEl.textContent =
-              data.mode === 'end'    ? 'Scanează pentru a-ți confirma plecarea' :
-              data.mode === 'active' ? 'Scanează pentru a-ți confirma prezența' :
-              '-';
-          }
 
-          // setează/ascunde QR
-          if (data.qr_token){
-            const v = encodeURIComponent(data.ora_curenta || Date.now());
-            const src = `/qr.png?token=${data.qr_token}&v=${v}`;
-            if (qrImg){
-              qrImg.src = src;
-              qrImg.style.visibility = 'visible';
-            }
-            if (qrDebugEl) qrDebugEl.textContent = `${location.origin}/elev?token=${data.qr_token}`;
-            lastToken = data.qr_token;
-            console.log('SET QR IMG:', src);
-          } else {
-            if (qrImg) qrImg.style.visibility = 'hidden';
-            if (qrDebugEl) qrDebugEl.textContent = '';
-          }
-        } catch(e){
-          console.error('tick error', e);
+      function setText(el, text, key) {
+        if (!el) return;
+        if (prev[key] !== text) {
+          prev[key] = text;
+          requestAnimationFrame(() => { el.textContent = text; });
         }
-        setTimeout(tick, 3000);
       }
+
+      // —— Scheduler strict (un singur timer, fără overlap) ——
+      let timerId = null;
+      let inFlight = false;
+      const nowTS = () => new Date().toISOString().split('T')[1].slice(0,12);
+
+      function scheduleNextTick(mode, nextAtISO){
+        const FAST = 3000, SLOW = 60000;
+
+        // curăță orice timer vechi înainte să programezi unul nou
+        if (timerId) { clearTimeout(timerId); timerId = null; }
+
+        // dacă avem o oră exactă de trezire și suntem în off/sleep, programează fix acolo
+        if (nextAtISO && (mode === 'off' || mode === 'sleep')) {
+          const t = Date.parse(nextAtISO);
+          const delay = Math.max(0, t - Date.now() + 250); // buffer mic
+          console.log(`[${nowTS()}][sched] mode=${mode} wake in ${Math.round(delay/1000)}s`);
+          timerId = setTimeout(tick, delay);
+          return;
+        }
+
+        // altfel, interval după mod
+        const interval = (mode === 'active' || mode === 'end') ? FAST : SLOW;
+        console.log(`[${nowTS()}][sched] mode=${mode} interval ${interval/1000}s`);
+        timerId = setTimeout(tick, interval);
+      }
+
+      async function tick() {
+        if (inFlight) {
+          console.warn(`[${nowTS()}][tick] SKIP inFlight`); return;
+        }
+        inFlight = true;
+        const t0 = performance.now();
+
+        let nextMode = 'off';
+        let nextAt   = null;
+
+        try {
+          const r = await fetch(`/api/monitor_status?session_id=${sessionId}`, { cache: 'no-store' });
+          if (!r.ok) {
+            console.warn(`[${nowTS()}][tick] API status`, r.status); return;
+          }
+          const data = await r.json();
+          nextMode = data.mode;
+          nextAt   = data.next_window_at || null;
+
+          // — UI updates (dif) —
+          setText(clockEl, data.ora_curenta || '--:--', 'ora_curenta');
+          setText(dateEl,  data.data_curenta || '{{ data_curenta }}', 'data_curenta');
+
+          const subText = data.window_label
+            ? `Fereastră check-in: ${data.window_label}. Bife verzi = prezenți.` : '';
+          setText(subEl, subText, 'window_label');
+
+          setText(presentPill, `${data.present_count} / ${data.total}`, 'present_count_total');
+          setText(leftPill,    `${(data.left_count ?? 0)} / ${data.present_count}`, 'left_over_present');
+
+          const titleText =
+            data.mode === 'end'    ? 'Cod de final de oră' :
+            data.mode === 'active' ? 'Cod de început de oră' :
+            data.mode === 'sleep'  ? 'Oră în desfășurare' :
+                                      'În afara orelor';
+          setText(qrTitleEl, titleText, 'mode_title');
+
+           // afișare doar în faza end
+const leftWrap = document.getElementById('left-wrap');
+if (leftWrap) {
+  leftWrap.style.display = (data.mode === 'end') ? 'flex' : 'none';
+}
+
+          document.body.setAttribute('data-mode', data.mode);
+
+          if (Array.isArray(data.codes)) {
+  for (const item of data.codes) {
+    const row = codeRowMap.get(item.last2);
+    if (row) setBadge(row, item.status);
+  }
+}
+
+          const scanText =
+            data.mode === 'end'    ? 'Scanează pentru a-ți confirma plecarea' :
+            data.mode === 'active' ? 'Scanează pentru a-ți confirma prezența' :
+            data.mode === 'sleep' ? '' :
+                                      'Nu există o sesiune activă.';
+          setText(qrScanTextEl, scanText, 'scan_text');
+
+          // Afișăm QR doar în active/end (nu riscăm token rezidual)
+          const canShowQR = (data.mode === 'active' || data.mode === 'end');
+          if (canShowQR && data.qr_token) {
+            if (prev.qr_token !== data.qr_token) {
+              prev.qr_token = data.qr_token;
+              const src = `/qr.png?token=${data.qr_token}`;
+              requestAnimationFrame(() => {
+                if (qrImg)  { qrImg.src = src; qrImg.style.display = 'block'; }
+                if (qrPhEl) qrPhEl.style.display = 'none';
+                if (qrDebugEl) qrDebugEl.textContent = `${location.origin}/elev?token=${data.qr_token}`;
+              });
+            }
+          } else {
+            if (prev.qr_token !== null) prev.qr_token = null;
+            requestAnimationFrame(() => {
+              if (qrImg)   qrImg.style.display = 'none';
+              if (qrPhEl)  qrPhEl.style.display = 'flex';
+              if (qrDebugEl) qrDebugEl.textContent = '';
+            });
+          }
+
+          console.log(`[${nowTS()}][tick] mode=${data.mode} token=${!!data.qr_token} took ${Math.round(performance.now()-t0)}ms`);
+
+        } catch (e) {
+          console.error(`[${nowTS()}][tick] error`, e);
+          nextMode = 'off';
+          nextAt   = null;
+        } finally {
+          inFlight = false;
+          scheduleNextTick(nextMode, nextAt);
+        }
+      }
+
+
       tick();
     })();
 </script>
+
 
 
 </body>
