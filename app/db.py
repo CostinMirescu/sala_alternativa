@@ -23,22 +23,33 @@ def _db_path_from_url(db_url: str) -> str:
         raise ValueError("Only sqlite:/// URLs are supported in pilot")
     u = urlparse(db_url)
     path = u.path or ""
-    # urlparse('sqlite:////data/sala.db').path == '//data/sala.db'
-    # vrem '/data/sala.db' (absolut), nu 'data/sala.db' (relativ)
+
+    # 'sqlite:////data/sala.db' -> urlparse.path == '//data/sala.db'
+    # vrem '/data/sala.db' (absolut)
     if path.startswith("//"):
-        path = path[1:]  # //data/... -> /data/...
-    return path if path else "instance/sala.db"
+        path = path[1:]
+    return path or "instance/sala.db"
 
 
 
+def get_connection():
+    db_url = current_app.config.get("DATABASE_URL")
+    db_path: Path
+    if db_url:
+        db_path = Path(_db_path_from_url(db_url))
+    else:
+        cfg_path = current_app.config.get("DATABASE_PATH")
+        if cfg_path:
+            db_path = Path(cfg_path)
+        else:
+            db_path = Path(current_app.instance_path) / "sala.db"
 
-def get_connection() -> sqlite3.Connection:
-    db_url = current_app.config.get("DATABASE_URL", "sqlite:///instance/sala.db")
-    db_path = _db_path_from_url(db_url)
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path, detect_types=sqlite3.PARSE_DECLTYPES)
+
+    conn = sqlite3.connect(db_path.as_posix(), detect_types=sqlite3.PARSE_DECLTYPES)
     conn.row_factory = sqlite3.Row
     return conn
+
 
 
 def init_db() -> None:
