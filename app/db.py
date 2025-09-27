@@ -11,12 +11,11 @@ from typing import Iterable, Optional
 from flask import current_app
 from zoneinfo import ZoneInfo
 
-
 ISO_FMT = "%Y-%m-%dT%H:%M:%S%z"  # ex: 2025-09-23T10:00:00+0200
-
 
 # sus, asigură importul
 from urllib.parse import urlparse
+
 
 def _db_path_from_url(db_url: str) -> str:
     if not db_url.startswith("sqlite:"):
@@ -28,8 +27,6 @@ def _db_path_from_url(db_url: str) -> str:
     if path.startswith("//"):
         path = path[1:]
     return path or "instance/sala.db"
-
-
 
 
 def get_connection():
@@ -51,7 +48,6 @@ def get_connection():
     return conn
 
 
-
 def init_db() -> None:
     conn = get_connection()
     cur = conn.cursor()
@@ -67,11 +63,13 @@ def init_db() -> None:
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS authorized_code (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            class_id TEXT NOT NULL REFERENCES class(id) ON DELETE CASCADE,
-            code4_hash TEXT NOT NULL,
-            UNIQUE(class_id, code4_hash)
-        );
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_id TEXT NOT NULL REFERENCES class(id) ON DELETE CASCADE,
+    code4_hash TEXT NOT NULL,
+    code4_plain TEXT,
+    UNIQUE(class_id, code4_hash)
+);
+
         """
     )
 
@@ -147,7 +145,6 @@ def init_db() -> None:
     CREATE INDEX IF NOT EXISTS idx_session_starts ON session(starts_at);
     CREATE INDEX IF NOT EXISTS idx_schedule_class ON schedule(class_id);
     """)
-
 
     try:
         cur.execute("ALTER TABLE attendance ADD COLUMN check_out_at TEXT")
