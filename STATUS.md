@@ -16,3 +16,18 @@
 - Render: `DATABASE_URL=sqlite:////data/sala.db`, `TZ=Europe/Bucharest`, `FORCE_PROXY_FIX=true`, `PREFERRED_URL_SCHEME=https`.
 
 ## Comenzi utile (local)
+python -m flask --app app:create_app init-db
+python -m flask --app app:create_app seed-periods
+python -m flask --app app:create_app import-schedule .\docs\schedule.csv
+python -m flask --app app:create_app seed-now --class 11C --minutes-ago 2 --duration 50
+
+## Verificări rapide
+- API: `/api/monitor_status?session_id=<id>` trebuie 200 JSON.
+- QR debug în monitor: link “/elev?token=...”.
+
+  
+Commit & push:
+
+git add STATUS.md
+git commit -m "docs: STATUS.md pentru handoff"
+git push
