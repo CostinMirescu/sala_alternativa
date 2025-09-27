@@ -85,7 +85,7 @@
 
             </div>
             <div class="qr-caption" id="qr-scan-text"></div>
-<!--            <div id="qr-debug" class="qr-caption" style="user-select:all; max-width:500px"></div>-->
+            <div id="qr-debug" class="qr-caption" style="user-select:all; max-width:500px"></div>
         </aside>
 
     </main>
@@ -153,8 +153,13 @@ function buildCodeRowMap() {
   const m = new Map();
   document.querySelectorAll('.codes .code').forEach(row => {
     const b = row.querySelector('b');
-    const code = b ? (b.textContent || '').trim() : '';
-    if (code) m.set(code, row);
+    let code = b ? (b.textContent || '').trim() : '';
+// extragem ultimele 2 cifre (ex: "⬤ ⬤ 47" -> "47")
+const match = code.match(/(\d{2})$/);
+if (match) {
+  code = match[1];
+  m.set(code, row);
+}
   });
   codeRowMap = m;
 }
