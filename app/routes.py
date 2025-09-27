@@ -110,8 +110,8 @@ def monitor():
     class_id = sess["class_id"]
 
 
-    starts_at = _parse_iso(sess["starts_at"])  # aware
-    ends_at = _parse_iso(sess["ends_at"])
+    starts_at = parse_iso(sess["starts_at"])  # aware
+    ends_at = parse_iso(sess["ends_at"])
 
     now = datetime.now(tz=current_app.config["TZ"])
     delta = int((now - starts_at).total_seconds())
