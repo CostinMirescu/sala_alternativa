@@ -243,8 +243,8 @@ def import_codes(csv_path: Path) -> ImportResult:
             code_hash = _hash_code(class_id, code4)
             try:
                 cur.execute(
-                    "INSERT INTO authorized_code(class_id, code4_hash) VALUES (?, ?)",
-                    (class_id, code_hash),
+                    "INSERT INTO authorized_code(class_id, code4_hash, code4_plain) VALUES (?, ?, ?)",
+                    (class_id, code_hash, code4),
                 )
                 inserted += 1
             except sqlite3.IntegrityError:
