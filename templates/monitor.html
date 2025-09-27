@@ -142,12 +142,30 @@
         total:null, left_count:null, mode:null, qr_token:null, window_label:null };
 
         // Mapăm fiecare rând după cod (textul din <b>)
-const codeRowMap = new Map();
-document.querySelectorAll('.codes .code').forEach(row => {
-  const b = row.querySelector('b');
-  const code = b ? (b.textContent || '').trim() : '';
-  if (code) codeRowMap.set(code, row);
-});
+// înlocuiește blocul ăsta:
+// const codeRowMap = new Map();
+// document.querySelectorAll('.codes .code').forEach(row => { ... });
+
+// cu ăsta:
+let codeRowMap = null;
+
+function buildCodeRowMap() {
+  const m = new Map();
+  document.querySelectorAll('.codes .code').forEach(row => {
+    const b = row.querySelector('b');
+    const code = b ? (b.textContent || '').trim() : '';
+    if (code) m.set(code, row);
+  });
+  codeRowMap = m;
+}
+
+function getRowByLast2(k) {
+  if (!codeRowMap || codeRowMap.size === 0) buildCodeRowMap();
+  // dacă încă nu găsim cheia, încearcă o reconstrucție (ex. după ce DOM s-a populat)
+  if (!codeRowMap.has(k) && document.readyState !== 'loading') buildCodeRowMap();
+  return codeRowMap.get(k);
+}
+
 
 function setBadge(row, status){
   const badge = row.querySelector('.badge');
@@ -254,7 +272,7 @@ if (leftWrap) {
 
           if (Array.isArray(data.codes)) {
   for (const item of data.codes) {
-    const row = codeRowMap.get(item.last2);
+    const row = getRowByLast2(item.last2);
     if (row) setBadge(row, item.status);
   }
 }
@@ -300,7 +318,11 @@ if (leftWrap) {
       }
 
 
-      tick();
+      if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', tick);
+} else {
+  tick();
+}
     })();
 </script>
 
