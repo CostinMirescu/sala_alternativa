@@ -28,7 +28,7 @@
             </div>
             {% endif %}
             <form class="code" action="{{ url_for('main.elev') }}" method="post" autocomplete="one-time-code">
-                <input type="hidden" name="token" value="{{ request.args.get('token','') }}">
+                <input type="hidden" name="token" value="{{ token }}">
                 <input type="hidden" name="device_id" id="device-id" value="">
                 <div class="code-boxes" aria-label="Introdu codul din 4 cifre">
                     <input class="digit" name="d1" inputmode="numeric" pattern="[0-9]*" maxlength="1"

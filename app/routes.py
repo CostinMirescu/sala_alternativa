@@ -215,7 +215,7 @@ def elev():
 
     if request.method == "GET":
         # doar randăm formularul; POST-ul va include tokenul ca hidden
-        return render_template("elev.html", session_id=session_id, message=None, status_final=None)
+        return render_template("elev.html", session_id=session_id, message=None, status_final=None, token=token)
 
     # --- POST: preluăm codul de 4 cifre ---
     d1 = (request.form.get("d1") or "").strip()
@@ -225,7 +225,7 @@ def elev():
     code4 = f"{d1}{d2}{d3}{d4}"
 
     if len(code4) != 4 or not code4.isdigit():
-        return render_template("elev.html", session_id=session_id, message="Cod invalid — introdu exact 4 cifre", status_final=None)
+        return render_template("elev.html", session_id=session_id, message="Cod invalid — introdu exact 4 cifre", status_final=None, token=token)
 
     conn = get_connection()
     cur = conn.cursor()
@@ -234,7 +234,7 @@ def elev():
     sess = cur.fetchone()
     if not sess:
         conn.close()
-        return render_template("elev.html", session_id=session_id, message="Sesiune inexistentă", status_final=None)
+        return render_template("elev.html", session_id=session_id, message="Sesiune inexistentă", status_final=None, token=token)
 
     class_id = sess["class_id"]
 
@@ -249,7 +249,7 @@ def elev():
     cur.execute("SELECT 1 FROM authorized_code WHERE class_id=? AND code4_hash=?", (class_id, code_hash))
     if not cur.fetchone():
         conn.close()
-        return render_template("elev.html", session_id=session_id, message="Cod neautorizat pentru această clasă", status_final=None)
+        return render_template("elev.html", session_id=session_id, message="Cod neautorizat pentru această clasă", status_final=None, token=token)
 
     # ===== CHECK-OUT (phase=end) =====
     if token_phase == "end":
@@ -257,16 +257,16 @@ def elev():
         win = _checkout_allowed(now, ends_at)
         if win == "early":
             conn.close()
-            return render_template("elev.html", session_id=session_id, message="Check-out disponibil cu 5 minute înainte de final.", status_final=None)
+            return render_template("elev.html", session_id=session_id, message="Check-out disponibil cu 5 minute înainte de final.", status_final=None, token=token)
         if win == "late":
             conn.close()
-            return render_template("elev.html", session_id=session_id, message="Fereastra de check-out a expirat.", status_final=None)
+            return render_template("elev.html", session_id=session_id, message="Fereastra de check-out a expirat.", status_final=None, token=token)
 
         # trebuie să existe check-in anterior
         cur.execute("SELECT 1 FROM attendance WHERE session_id=? AND code4_hash=?", (session_id, code_hash))
         if not cur.fetchone():
             conn.close()
-            return render_template("elev.html", session_id=session_id, message="Nu poți face check-out fără check-in pentru această oră.", status_final=None)
+            return render_template("elev.html", session_id=session_id, message="Nu poți face check-out fără check-in pentru această oră.", status_final=None, token=token)
 
         cur.execute(
             "UPDATE attendance SET status=?, check_out_at=? WHERE session_id=? AND code4_hash=?",
@@ -274,20 +274,20 @@ def elev():
         )
         conn.commit()
         conn.close()
-        return render_template("elev.html", session_id=session_id, message="Check-out înregistrat. O oră bună!", status_final="plecat")
+        return render_template("elev.html", session_id=session_id, message="Check-out înregistrat. O oră bună!", status_final="plecat", token=token)
 
     # ===== CHECK-IN (phase=start sau fără token) =====
     st = _status_for(delta)  # None dacă în afara ferestrei 0-10 min
     if st is None:
         conn.close()
 
-        return render_template("elev.html", session_id=session_id, message="Ora a început de mai mult de zece minute. Nu mai este permis check-in-ul.", status_final=None)
+        return render_template("elev.html", session_id=session_id, message="Ora a început de mai mult de zece minute. Nu mai este permis check-in-ul.", status_final=None, token=token)
 
     # Anti-fraud (device_id + rate-limit + device folosit pt. alt cod + duplicat)
     device_id = (request.form.get("device_id") or "").strip()
     if not device_id:
         conn.close()
-        return render_template("elev.html", session_id=session_id, message="Lipsește identificatorul dispozitivului", status_final=None)
+        return render_template("elev.html", session_id=session_id, message="Lipsește identificatorul dispozitivului", status_final=None, token=token)
 
     # 1) Rate limit
     cur.execute(
@@ -303,7 +303,7 @@ def elev():
         )
         conn.commit()
         conn.close()
-        return render_template("elev.html", session_id=session_id, message="Prea multe încercări. Încearcă din nou peste un minut.", status_final=None)
+        return render_template("elev.html", session_id=session_id, message="Prea multe încercări. Încearcă din nou peste un minut.", status_final=None, token=token)
 
     # 2) Acelasi device a validat deja alt cod (blocăm doar după succes)
     cur.execute(
@@ -326,7 +326,7 @@ def elev():
             conn.close()
             return render_template("elev.html", session_id=session_id,
                                    message="Acest dispozitiv a fost folosit deja pentru un alt cod la această oră.",
-                                   status_final=None)
+                                   status_final=None , token=token)
 
 
     # Insert check-in
@@ -352,7 +352,7 @@ def elev():
     finally:
         conn.close()
 
-    return render_template("elev.html", session_id=session_id, message=message, status_final=status_final)
+    return render_template("elev.html", session_id=session_id, message=message, status_final=status_final, token=token)
 
 
 
