@@ -305,35 +305,29 @@ def elev():
         conn.close()
         return render_template("elev.html", session_id=session_id, message="Prea multe încercări. Încearcă din nou peste un minut.", status_final=None)
 
-    # 2) Același device folosit pentru alt cod?
+    # 2) Acelasi device a validat deja alt cod (blocăm doar după succes)
     cur.execute(
-        "SELECT DISTINCT code4_hash FROM attendance WHERE session_id=? AND class_id=? AND code4_hash IS NOT NULL",
-        (session_id, class_id),
+        "SELECT code4_hash FROM attempt_log "
+        "WHERE session_id=? AND device_id=? AND success=1 "
+        "ORDER BY ts DESC LIMIT 1",
+        (session_id, device_id),
     )
-    used_hashes = {row[0] for row in cur.fetchall()}
-    if used_hashes and (code_hash not in used_hashes):
-        cur.execute(
-            "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts)"
-            " VALUES (?,?,?,?,?,?,?,?,?)",
-            (session_id, class_id, device_id, code_hash, 0, "device-used-for-other-code",
-             request.remote_addr, request.headers.get("User-Agent",""), now.strftime("%Y-%m-%dT%H:%M:%S%z")),
-        )
-        conn.commit()
-        conn.close()
-        return render_template("elev.html", session_id=session_id, message="Acest dispozitiv a fost folosit deja pentru alt cod la această oră.", status_final=None)
+    row = cur.fetchone()
+    if row:
+        prior_hash = row[0]
+        if prior_hash and prior_hash != code_hash:
+            cur.execute(
+                "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (session_id, class_id, device_id, code_hash, 0, "device-used-for-other-code",
+                 request.remote_addr, request.headers.get("User-Agent", ""), now.strftime("%Y-%m-%dT%H:%M:%S%z")),
+            )
+            conn.commit()
+            conn.close()
+            return render_template("elev.html", session_id=session_id,
+                                   message="Acest dispozitiv a fost folosit deja pentru un alt cod la această oră.",
+                                   status_final=None)
 
-    # 3) Duplicat: același cod deja a făcut check-in
-    cur.execute("SELECT 1 FROM attendance WHERE session_id=? AND code4_hash=?", (session_id, code_hash))
-    if cur.fetchone():
-        cur.execute(
-            "INSERT INTO attempt_log(session_id,class_id,device_id,code4_hash,success,reason,ip,user_agent,ts)"
-            " VALUES (?,?,?,?,?,?,?,?,?)",
-            (session_id, class_id, device_id, code_hash, 0, "duplicate-code",
-             request.remote_addr, request.headers.get("User-Agent",""), now.strftime("%Y-%m-%dT%H:%M:%S%z")),
-        )
-        conn.commit()
-        conn.close()
-        return render_template("elev.html", session_id=session_id, message="Acest cod a fost deja folosit pentru această oră.", status_final=None)
 
     # Insert check-in
     try:
