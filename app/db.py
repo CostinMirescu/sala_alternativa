@@ -23,12 +23,12 @@ def _db_path_from_url(db_url: str) -> str:
         raise ValueError("Only sqlite:/// URLs are supported in pilot")
     u = urlparse(db_url)
     path = u.path or ""
+
     # 'sqlite:////data/sala.db' -> urlparse.path == '//data/sala.db'
     # vrem '/data/sala.db' (absolut)
     if path.startswith("//"):
         path = path[1:]
     return path or "instance/sala.db"
-
 
 
 
