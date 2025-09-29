@@ -246,6 +246,13 @@ function setBadge(row, status){
             console.warn(`[${nowTS()}][tick] API status`, r.status); return;
           }
           const data = await r.json();
+          // dacă sesiunea curentă s-a încheiat, mergem la auto-resolver
+if (data.mode === 'off') {
+  console.log('[monitor] session ended -> redirect to /monitor_auto');
+  window.location.replace('/monitor_auto');
+  return; // IMPORTANT: oprim tick-ul curent
+}
+
           nextMode = data.mode;
           nextAt   = data.next_window_at || null;
 

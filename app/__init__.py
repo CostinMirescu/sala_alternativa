@@ -213,7 +213,7 @@ def create_app():
     def _gen_session_for(class_id: str, date_obj, start_hhmm: str, tz):
         """Creează sesiune (dacă lipsește) pentru clasa dată, în ziua/ora dată."""
         starts = aware_from_hhmm(date_obj, start_hhmm, tz)
-        ends = starts + timedelta(minutes=60)
+        ends = starts + timedelta(minutes=50)
         conn = get_connection();
         cur = conn.cursor()
         try:
