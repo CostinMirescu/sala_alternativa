@@ -580,6 +580,6 @@ def monitor_auto():
 
     sid = _find_or_create_current_session(current_app.config["TZ"])
     if sid:
-        return redirect(url_for("main.monitor", session_id=sid), code=302)
+        return redirect(url_for("monitor", session_id=sid), code=302)
     # nici o sesiune validă: arată monitor “off” (poți avea un template minimal)
     return render_template("monitor_off.html")
