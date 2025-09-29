@@ -90,7 +90,7 @@ def _checkout_allowed(now, ends_at):
 
 
 # --- Monitor ---
-# @bp.get("/monitor")
+@bp.get("/monitor")
 def monitor():
     """Afișează lista codurilor pentru o sesiune + statusuri/contor.
     Parametri: session_id (obligatoriu)
