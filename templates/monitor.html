@@ -246,6 +246,27 @@ function setBadge(row, status){
             console.warn(`[${nowTS()}][tick] API status`, r.status); return;
           }
           const data = await r.json();
+          // —— auto-swap la sesiunea nouă ——
+// dacă sesiunea curentă e 'off' și am ajuns la (sau am depășit) next_window_at → mergem în /monitor_auto
+const nextAtMs = data.next_window_at ? Date.parse(data.next_window_at) : null;
+if (data.mode === 'off') {
+  if (nextAtMs && !Number.isNaN(nextAtMs) && Date.now() + 500 >= nextAtMs) {
+    console.log('[monitor] off → time for next window → redirect /monitor_auto');
+    window.location.replace('/monitor_auto');
+    return; // IMPORTANT: oprim acest tick; noua pagină va face redirect spre noua sesiune
+  }
+  // plasă de siguranță: dacă backend-ul NU furnizează next_window_at, mai încercăm periodic
+  if (!nextAtMs) {
+    // evităm bucle dese: redirectăm o dată la ~2 minute cât timp suntem în 'off'
+    if (!prev._lastOffRedirect || (Date.now() - prev._lastOffRedirect) > 120000) {
+      prev._lastOffRedirect = Date.now();
+      console.log('[monitor] off without next_window_at → periodic redirect /monitor_auto');
+      window.location.replace('/monitor_auto');
+      return;
+    }
+  }
+}
+
           // dacă sesiunea curentă s-a încheiat, mergem la auto-resolver
 if (data.mode === 'off') {
   console.log('[monitor] session ended -> redirect to /monitor_auto');
