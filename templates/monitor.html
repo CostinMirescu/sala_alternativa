@@ -246,26 +246,31 @@ function setBadge(row, status){
             console.warn(`[${nowTS()}][tick] API status`, r.status); return;
           }
           const data = await r.json();
-          // —— auto-swap la sesiunea nouă ——
-// dacă sesiunea curentă e 'off' și am ajuns la (sau am depășit) next_window_at → mergem în /monitor_auto
-const nextAtMs = data.next_window_at ? Date.parse(data.next_window_at) : null;
+
+          // —— auto-swap (debounced) ——
+// redirecționează o singură dată pentru acest session_id; dacă ne întoarcem la același id, nu mai redirectăm la nesfârșit
+const currentSid = sessionId;
+const REDIRECT_KEY = 'sa_last_redirect_sid';
+
 if (data.mode === 'off') {
-  if (nextAtMs && !Number.isNaN(nextAtMs) && Date.now() + 500 >= nextAtMs) {
-    console.log('[monitor] off → time for next window → redirect /monitor_auto');
+  const already = localStorage.getItem(REDIRECT_KEY);
+  if (already !== String(currentSid)) {
+    localStorage.setItem(REDIRECT_KEY, String(currentSid));
+    console.log('[monitor] off → go /monitor_auto (once per sid)', currentSid);
     window.location.replace('/monitor_auto');
-    return; // IMPORTANT: oprim acest tick; noua pagină va face redirect spre noua sesiune
+    return; // important
+  } else {
+    // am mai redirectat deja pentru acest sid; nu mai facem nimic, doar poll rar
+    scheduleNextTick('off', data.next_window_at);
+    return;
   }
-  // plasă de siguranță: dacă backend-ul NU furnizează next_window_at, mai încercăm periodic
-  if (!nextAtMs) {
-    // evităm bucle dese: redirectăm o dată la ~2 minute cât timp suntem în 'off'
-    if (!prev._lastOffRedirect || (Date.now() - prev._lastOffRedirect) > 120000) {
-      prev._lastOffRedirect = Date.now();
-      console.log('[monitor] off without next_window_at → periodic redirect /monitor_auto');
-      window.location.replace('/monitor_auto');
-      return;
-    }
+} else {
+  // când nu mai suntem off, curățăm marcajul ca să permitem redirectul data viitoare, pentru noul sid
+  if (localStorage.getItem(REDIRECT_KEY) === String(currentSid)) {
+    localStorage.removeItem(REDIRECT_KEY);
   }
 }
+
 
           // dacă sesiunea curentă s-a încheiat, mergem la auto-resolver
 if (data.mode === 'off') {

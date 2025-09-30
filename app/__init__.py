@@ -214,7 +214,7 @@ def create_app():
         """Creează sesiune (dacă lipsește) pentru clasa dată, în ziua/ora dată."""
         starts = aware_from_hhmm(date_obj, start_hhmm, tz)
         ends = starts + timedelta(minutes=50)
-        conn = get_connection();
+        conn = get_connection()
         cur = conn.cursor()
         try:
             cur.execute("INSERT INTO session(class_id, starts_at, ends_at) VALUES (?,?,?)",
@@ -225,7 +225,7 @@ def create_app():
             # exista deja
             cur.execute("SELECT id FROM session WHERE class_id=? AND starts_at=?",
                         (class_id, starts.strftime("%Y-%m-%dT%H:%M:%S%z")))
-            row = cur.fetchone();
+            row = cur.fetchone()
             sid = row["id"] if row else None
         finally:
             conn.close()
