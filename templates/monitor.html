@@ -209,6 +209,17 @@ function setBadge(row, status){
       let inFlight = false;
       const nowTS = () => new Date().toISOString().split('T')[1].slice(0,12);
 
+
+function parseIsoMaybe(s){
+  if (!s) return NaN;
+  // normalizează “+0300” → “+03:00” ca să fie sigur pentru Date.parse
+  const m = s.match(/([+-]\d{2})(\d{2})$/);
+  if (m) s = s.replace(m[0], `${m[1]}:${m[2]}`);
+  const t = Date.parse(s);
+  return Number.isNaN(t) ? NaN : t;
+}
+
+
 function scheduleNextTick(mode, nextAtISO){
   const FAST = 3000, SLOW = 60000;
 
