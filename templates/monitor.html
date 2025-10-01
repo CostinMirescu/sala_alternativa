@@ -209,26 +209,25 @@ function setBadge(row, status){
       let inFlight = false;
       const nowTS = () => new Date().toISOString().split('T')[1].slice(0,12);
 
-      function scheduleNextTick(mode, nextAtISO){
-        const FAST = 3000, SLOW = 60000;
+function scheduleNextTick(mode, nextAtISO){
+  const FAST = 3000, SLOW = 60000;
 
-        // curăță orice timer vechi înainte să programezi unul nou
-        if (timerId) { clearTimeout(timerId); timerId = null; }
+  if (timerId) { clearTimeout(timerId); timerId = null; }
 
-        // dacă avem o oră exactă de trezire și suntem în off/sleep, programează fix acolo
-        if (nextAtISO && (mode === 'off' || mode === 'sleep')) {
-          const t = Date.parse(nextAtISO);
-          const delay = Math.max(0, t - Date.now() + 250); // buffer mic
-          console.log(`[${nowTS()}][sched] mode=${mode} wake in ${Math.round(delay/1000)}s`);
-          timerId = setTimeout(tick, delay);
-          return;
-        }
+  if (nextAtISO && (mode === 'off' || mode === 'sleep')) {
+    const t = parseIsoMaybe(nextAtISO);
+    let delay = Number.isFinite(t) ? (t - Date.now() + 250) : NaN;
+    if (!Number.isFinite(delay) || delay < 500) delay = SLOW; // dacă e trecut sau invalid, revino lent
+    console.log(`[${nowTS()}][sched] mode=${mode} wake in ${Math.round(delay/1000)}s`);
+    timerId = setTimeout(tick, delay);
+    return;
+  }
 
-        // altfel, interval după mod
-        const interval = (mode === 'active' || mode === 'end') ? FAST : SLOW;
-        console.log(`[${nowTS()}][sched] mode=${mode} interval ${interval/1000}s`);
-        timerId = setTimeout(tick, interval);
-      }
+  const interval = (mode === 'active' || mode === 'end') ? FAST : SLOW;
+  console.log(`[${nowTS()}][sched] mode=${mode} interval ${interval/1000}s`);
+  timerId = setTimeout(tick, interval);
+}
+
 
       async function tick() {
         if (inFlight) {
@@ -247,37 +246,66 @@ function setBadge(row, status){
           }
           const data = await r.json();
 
-          // —— auto-swap (debounced) ——
-// redirecționează o singură dată pentru acest session_id; dacă ne întoarcem la același id, nu mai redirectăm la nesfârșit
-const currentSid = sessionId;
-const REDIRECT_KEY = 'sa_last_redirect_sid';
+         // —— OFF → auto-swap robust (dimineața, după miezul nopții etc.) ——
+const REDIR_TS_KEY  = 'sa_last_off_redirect_ts';
+const REDIR_SID_KEY = 'sa_last_redirect_sid';
+const REDIR_DAY_KEY = 'sa_last_off_redirect_day';
+
+const nowMs  = Date.now();
+const today  = new Date().toISOString().slice(0,10); // YYYY-MM-DD
+const lastTs = Number(localStorage.getItem(REDIR_TS_KEY) || 0);
+const lastDay= localStorage.getItem(REDIR_DAY_KEY) || '';
+const alreadySid = localStorage.getItem(REDIR_SID_KEY) || '';
+
+function parseIsoMaybe(s){
+  if (!s) return NaN;
+  // normalizează “+0300” → “+03:00” ca să parsăm sigur
+  const m = s.match(/([+-]\d{2})(\d{2})$/);
+  if (m) s = s.replace(m[0], `${m[1]}:${m[2]}`);
+  return Date.parse(s);
+}
+
+const nextAtMs = parseIsoMaybe(data.next_window_at);
+
+// resetăm throttle-ul zilnic (altfel rămâne debounced peste noapte)
+if (lastDay !== today) {
+  localStorage.removeItem(REDIR_TS_KEY);
+  localStorage.removeItem(REDIR_SID_KEY);
+  localStorage.setItem(REDIR_DAY_KEY, today);
+}
 
 if (data.mode === 'off') {
-  const already = localStorage.getItem(REDIRECT_KEY);
-  if (already !== String(currentSid)) {
-    localStorage.setItem(REDIRECT_KEY, String(currentSid));
-    console.log('[monitor] off → go /monitor_auto (once per sid)', currentSid);
+  const SAFETY_PING_MS = 120000; // 2 min
+  const timeForNext = Number.isFinite(nextAtMs) && (nowMs + 500 >= nextAtMs);
+
+  // dacă avem next_window_at și a sosit → redirect imediat (o singură dată per sessionId)
+  if (timeForNext && alreadySid !== String(sessionId)) {
+    localStorage.setItem(REDIR_SID_KEY, String(sessionId));
+    localStorage.setItem(REDIR_TS_KEY, String(nowMs));
+    console.log('[monitor] OFF → /monitor_auto (next_window_at reached)');
     window.location.replace('/monitor_auto');
-    return; // important
-  } else {
-    // am mai redirectat deja pentru acest sid; nu mai facem nimic, doar poll rar
-    scheduleNextTick('off', data.next_window_at);
     return;
   }
+
+  // dacă NU avem next_window_at (de ex. dimineața devreme), fă un ping rar spre /monitor_auto
+  if (!Number.isFinite(nextAtMs) && (nowMs - lastTs > SAFETY_PING_MS)) {
+    localStorage.setItem(REDIR_TS_KEY, String(nowMs));
+    localStorage.setItem(REDIR_SID_KEY, String(sessionId));
+    console.log('[monitor] OFF → /monitor_auto (safety ping)');
+    window.location.replace('/monitor_auto');
+    return;
+  }
+
+  // rămânem pe loc și programăm următorul tick (lent sau la nextAt)
+  scheduleNextTick('off', data.next_window_at);
+  return;
 } else {
-  // când nu mai suntem off, curățăm marcajul ca să permitem redirectul data viitoare, pentru noul sid
-  if (localStorage.getItem(REDIRECT_KEY) === String(currentSid)) {
-    localStorage.removeItem(REDIRECT_KEY);
+  // când ieșim din OFF, curățăm marcajul pentru SID-ul precedent
+  if (localStorage.getItem(REDIR_SID_KEY) === String(sessionId)) {
+    localStorage.removeItem(REDIR_SID_KEY);
   }
 }
 
-
-          // dacă sesiunea curentă s-a încheiat, mergem la auto-resolver
-if (data.mode === 'off') {
-  console.log('[monitor] session ended -> redirect to /monitor_auto');
-  window.location.replace('/monitor_auto');
-  return; // IMPORTANT: oprim tick-ul curent
-}
 
           nextMode = data.mode;
           nextAt   = data.next_window_at || null;
