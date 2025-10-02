@@ -417,6 +417,24 @@ if (leftWrap) {
     })();
 </script>
 
+<script>
+(function(){
+  async function poll(){
+    try{
+      const r = await fetch('/api/monitor_status', { cache: 'no-store' });
+      if (r.ok) {
+        const d = await r.json();
+        if (d && d.session_id && d.mode && d.mode !== 'off') {
+          window.location.replace(`/monitor?session_id=${d.session_id}`);
+          return;
+        }
+      }
+    }catch(e){ /* tăcem; mai încercăm */ }
+    setTimeout(poll, 30000); // mai încearcă peste 30s
+  }
+  poll();
+})();
+</script>
 
 
 </body>
