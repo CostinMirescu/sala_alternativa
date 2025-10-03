@@ -296,6 +296,20 @@ if (data.mode === 'off') {
     return;
   }
 
+  // ——— UI OFF snapshot (ascunde lista codurilor, oprește QR, schimbă header) ———
+document.body.setAttribute('data-mode', 'off');
+const classPill = document.getElementById('class-pill');
+if (classPill) classPill.textContent = 'Nicio sesiune activă';
+
+const panel = document.getElementById('presence-panel');
+if (panel) panel.style.display = 'none';
+
+if (qrImg)   qrImg.style.display = 'none';
+if (qrPhEl)  qrPhEl.style.display = 'flex';
+setText(qrTitleEl, 'În afara orelor', 'mode_title');
+setText(qrScanTextEl, 'Nu există o sesiune activă.', 'scan_text');
+
+
   scheduleNextTick('off', data.next_window_at);
   return;
 } else {
